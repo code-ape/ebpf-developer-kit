@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-nix-shell -p rustChannels.nightly.rust -p gcc
+nix-shell -p rustChannels.stable.rust -p gcc

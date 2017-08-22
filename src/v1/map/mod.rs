@@ -1,60 +1,48 @@
 
-pub mod data;
+//! Create and manipulate eBPF maps.
+//!
+//! # Examples
+//!
+//! ```
+//! use ebpf::v1::map::{
+//!     HashMap as EbpfHashMap,
+//!     WriteOption,
+//!     Map,
+//!     WritableMap,
+//! };
+//!
+//! fn main() {
+//! 
+//!     println!("Creating eBPF map (type 'hashmap') to hold 512 entries.");
+//!     let mut hm = EbpfHashMap::new(512).expect("Hashmap creation failed!");
+//! 
+//!     println!("Setting key 1 to value 101.");
+//!     hm.set(1,101, WriteOption::CreateEntry).expect("Write failed!");
+//!     println!("Getting value for key 1.");
+//!     let v = hm.get(1).expect("Read failed!");
+//! 
+//!     println!("Asserting value retrieved equals 101.");
+//!     assert_eq!(v, 101);
+//! 
+//!     println!("Deleting value for key 1.");
+//!     hm.delete(1).expect("Delete failed!");
+//! 
+//!     println!("Verifying no value for key 1.");
+//!     assert!(hm.get(1).is_err());
+//! }
+//! ```
+//!
 
-use libc::{syscall, c_int, c_long, __u32, __u64, SYS_bpf};
-use std::os::unix::io::RawFd;
-use std::mem;
-use std::fmt;
-use std::io::Error;
+mod core;
+pub mod lowlevel;
 
-use ::v1::data::{
-    MapCreateAttr,
-    MapElemAttr,
-    MapId,
-};
+pub use ::v1::lowlevel::WriteOption;
 
-pub use ::v1::data::Action;
-
-pub use self::data::{
-    WriteOption,
+pub use self::core::{
+    // structs
+    HashMap,
+    Array,
+    // traits
     Map,
     WritableMap,
-    HashMap
 };
-
-
-use ::v1::syscall as ebpf_syscall;
-
-pub fn create_map(map_create_attr: MapCreateAttr) -> Result<MapId,Error> {
-    match ebpf_syscall(Action::MapCreate, map_create_attr) {
-        n if n > 0 => Ok(MapId::new(n)),
-        -1 => Err(Error::last_os_error()),
-        n => unreachable!("Syscall returned number other than 0 or 1: {}", n)
-    }
-}
-
-
-pub fn map_update_elem(map_elem_attr: MapElemAttr) -> Result<(),Error> {
-    match ebpf_syscall(Action::MapUpdateElem, map_elem_attr) {
-        0 => Ok(()),
-        -1 => Err(Error::last_os_error()),
-        n => unreachable!("Syscall returned number other than 0 or 1: {}", n)
-    }
-}
-
-
-pub fn map_lookup_elem(map_elem_attr: MapElemAttr) -> Result<(),Error> {
-    match ebpf_syscall(Action::MapLookupElem, map_elem_attr) {
-        0 => Ok(()),
-        -1 => Err(Error::last_os_error()),
-        n => unreachable!("Syscall returned number other than 0 or 1: {}", n)
-    }
-}
-
-pub fn map_delete_elem(map_elem_attr: MapElemAttr) -> Result<(),Error> {
-    match ebpf_syscall(Action::MapDeleteElem, map_elem_attr) {
-        0 => Ok(()),
-        -1 => Err(Error::last_os_error()),
-        n => unreachable!("Syscall returned number other than 0 or 1: {}", n)
-    }
-}
