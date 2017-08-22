@@ -13,7 +13,8 @@ use ::v1::data::{
 use ::v1::map::{
     create_map,
     map_update_elem,
-    map_lookup_elem
+    map_lookup_elem,
+    map_delete_elem
 };
 
 pub enum CreationError {
@@ -27,7 +28,7 @@ pub trait Map: Sized {
     type Value;
 
     fn new(max_entries: u32) -> CreateResult<Self>;
-    fn delete(self);
+    fn destroy(self);
 
     fn get(&self, k: Self::Key) -> Result<Self::Value,Error>;
     // TODO: generate iterator
@@ -35,7 +36,7 @@ pub trait Map: Sized {
 
 pub trait WritableMap: Map {
     fn set(&mut self, k: Self::Key, v: Self::Value, opt: WriteOption) -> Result<(),Error>;
-    fn delete_entry(&mut self, k: Self::Key) -> Result<(),()>;
+    fn delete(&mut self, k: Self::Key) -> Result<(),Error>;
 }
 
 pub struct HashMap<K,V> {
@@ -70,7 +71,7 @@ impl<K,V> Map for HashMap<K,V> {
         }
     }
 
-    fn delete(self) {
+    fn destroy(self) {
         unimplemented!();
     }
 
@@ -79,7 +80,7 @@ impl<K,V> Map for HashMap<K,V> {
             let mut value : V = mem::uninitialized();
             let value_ptr : *mut V = &mut value;
             let map_elem_attr = MapElemAttr {
-                map_fd: self.map_id.clone().into(), // TODO
+                map_fd: self.map_id.clone().into(),
                 key: &k as *const K as u64,
                 value_or_next_key: value_ptr as u64,
                 flags: 0
@@ -101,7 +102,7 @@ pub enum WriteOption {
 impl<K,V> WritableMap for HashMap<K,V> {
     fn set(&mut self, k: Self::Key, v: Self::Value, opt: WriteOption) -> Result<(),Error> {
         let map_elem_attr = MapElemAttr {
-            map_fd: self.map_id.clone().into(), // TODO
+            map_fd: self.map_id.clone().into(),
             key: &k as *const K as u64,
             value_or_next_key: &v as *const V as u64,
             flags: opt as u64
@@ -109,15 +110,25 @@ impl<K,V> WritableMap for HashMap<K,V> {
         map_update_elem(map_elem_attr)
     }
 
-    fn delete_entry(&mut self, k: Self::Key) -> Result<(),()> {
-        unimplemented!();
+    fn delete(&mut self, k: Self::Key) -> Result<(),Error> {
+        let map_elem_attr = MapElemAttr {
+            map_fd: self.map_id.clone().into(),
+            key: &k as *const K as u64,
+            value_or_next_key: 0,
+            flags: 0
+        };
+        map_delete_elem(map_elem_attr)
     }
 }
 
-/*
-pub struct Array<K,V> {
 
+pub struct Array<V> {
+    map_id: MapId,
+    max_entries: u32,
+    value: PhantomData<V>
 }
+
+/*
 
 pub struct ProgramArray {
 

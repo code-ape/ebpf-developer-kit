@@ -1,67 +1,29 @@
 
-extern crate ebpf;
+extern crate ebpf as lib_ebpf;
 
-use std::io;
-use ebpf::v1::map::{
-    create_map, map_update_elem, map_lookup_elem
-};
-
-use ebpf::v1::data::{
-    Action, Attr, MapCreateAttr, MapElemAttr
+use lib_ebpf::v1 as ebpf;
+use ebpf::map::{
+    Map,
+    WritableMap,
+    WriteOption
 };
 
 fn main() {
-    let map_create_attr = MapCreateAttr {
-        map_type: 1,
-        key_size: 8,
-        value_size: 8,
-        max_entries: 512,
-        map_flags: 0
-    };
 
-    println!("attr = {:?}", map_create_attr);
-    println!("action (binary) = {:b}", Action::MapCreate);
-    //let attr = Attr { map_create: map_create_attr };
-    
-    //println!("attr = \\\n{:b}", map_create_attr);
+    println!("Creating eBPF map (type 'hashmap') to hold 512 entries.");
+    let mut hm = ebpf::map::HashMap::new(512).expect("Hashmap creation failed!");
 
-    let map = create_map(map_create_attr);
+    println!("Setting key 1 to value 101.");
+    hm.set(1,101, WriteOption::CreateEntry).expect("Write failed!");
+    println!("Getting value for key 1.");
+    let v = hm.get(1).expect("Read failed!");
 
-    println!("map = {:?}", map);
+    println!("Asserting value retrieved equals 101.");
+    assert_eq!(v, 101);
 
-    let k : u64 = 1;
-    let v : u64 = 33;
+    println!("Deleting value for key 1.");
+    hm.delete(1).expect("Delete failed!");
 
-    let k_p : *const u64 = &k;
-    let v_p : *const u64 = &v;
-
-    let map_elem_attr = MapElemAttr {
-        map_fd: map.clone().into(),
-        key: k_p as u64,
-        value_or_next_key: v_p as u64,
-        flags: 1
-    };
-
-    let w = map_update_elem(map_elem_attr);
-    println!("w = {:?}", w);
-
-
-    let r_v : u64 = 0;
-    let r_p : *const u64 = &r_v;
-    let map_elem_attr_2 = MapElemAttr {
-        map_fd: map.clone().into(),
-        key: k_p as u64,
-        value_or_next_key: r_p as u64,
-        flags: 0
-    };
-
-    println!("r_v (pre) = {:?}", r_v);
-    let r = map_lookup_elem(map_elem_attr_2);
-    println!("r = {:?}", r);
-    println!("r_v (post) = {:?}", r_v);
-
-    //let mut s = String::new();
-    //println!("Waiting for text... ");
-    //io::stdin().read_line(&mut s).expect("Error reading input!");
-
+    println!("Verifying no value for key 1.");
+    assert!(hm.get(1).is_err());
 }
