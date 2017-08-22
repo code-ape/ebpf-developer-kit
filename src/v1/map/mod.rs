@@ -8,7 +8,8 @@
 //!     HashMap as EbpfHashMap,
 //!     WriteOption,
 //!     Map,
-//!     WritableMap,
+//!     MutableMap,
+//!     DeletableEntries,
 //! };
 //!
 //! fn main() {
@@ -17,7 +18,7 @@
 //!     let mut hm = EbpfHashMap::new(512).expect("Hashmap creation failed!");
 //! 
 //!     println!("Setting key 1 to value 101.");
-//!     hm.set(1,101, WriteOption::CreateEntry).expect("Write failed!");
+//!     hm.set_if(1,101, WriteOption::CreateEntry).expect("Write failed!");
 //!     println!("Getting value for key 1.");
 //!     let v = hm.get(1).expect("Read failed!");
 //! 
@@ -34,15 +35,21 @@
 //!
 
 mod core;
+
+mod array;
+mod hashmap;
+
 pub mod lowlevel;
 
 pub use ::v1::lowlevel::WriteOption;
 
 pub use self::core::{
-    // structs
-    HashMap,
-    Array,
     // traits
     Map,
-    WritableMap,
+    MutableMap,
+    DeletableEntries,
+    Iter,
 };
+
+pub use self::array::Array;
+pub use self::hashmap::HashMap;

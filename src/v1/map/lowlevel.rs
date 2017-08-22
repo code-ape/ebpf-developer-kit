@@ -44,3 +44,11 @@ pub unsafe fn map_delete_elem(map_elem_attr: MapElemAttr) -> Result<(),Error> {
         n => unreachable!("Syscall returned number other than 0 or 1: {}", n)
     }
 }
+
+pub unsafe fn map_get_next_key(map_elem_attr: MapElemAttr) -> Result<(),Error> {
+    match ebpf_syscall(Action::MapGetNextKey, map_elem_attr) {
+        0 => Ok(()),
+        -1 => Err(Error::last_os_error()),
+        n => unreachable!("Syscall returned number other than 0 or 1: {}", n)
+    }
+}

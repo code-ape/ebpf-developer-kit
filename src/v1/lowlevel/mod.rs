@@ -14,7 +14,6 @@ use libc::{
 use std::mem;
 use std::slice;
 use std::fmt;
-use std::io::Error;
 use std::os::unix::io::RawFd;
 
 
@@ -155,7 +154,6 @@ pub fn binary_vec_repr<T: Sized + Clone>(x: &T) -> Vec<String> {
     for byte in u8_vec.iter() {
         let mut s = String::new();
         // count number of zeros needed
-        let mut counter = 0;
         for n in [255,127,63,31,15,7,3,1].iter() {
             if byte <= n {
                 s.push('0');
