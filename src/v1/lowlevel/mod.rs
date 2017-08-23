@@ -1,7 +1,6 @@
 
 //! Lowlevel wrappers around syscall, mostly unsafe!
 
-
 use libc::{
     c_int,
     c_long,
@@ -112,6 +111,9 @@ pub type __aligned_u64 = __u64;
 /// }
 /// ```
 ///
+/// **STABLE**
+#[cfg(feature="stable")]
+#[cfg(feature="kernel_3_18")]
 pub unsafe fn ebpf_syscall<T: Attr>(action: Action, attr: T) -> c_long {
     linux_syscall(
         SYS_bpf,
@@ -122,6 +124,23 @@ pub unsafe fn ebpf_syscall<T: Attr>(action: Action, attr: T) -> c_long {
 }
 
 /// Enum of all actions possible with Linux `bpf` syscall.
+#[cfg(feature="stable")]
+#[cfg(feature="kernel_3_18")]
+#[derive(Clone, Copy)]
+pub enum Action {
+    MapCreate,
+    MapLookupElem,
+    MapUpdateElem,
+    MapDeleteElem,
+    MapGetNextKey,
+    ProgLoad,
+    ObjPin,
+    ObjGet
+}
+
+/// Enum of all actions possible with Linux `bpf` syscall.
+#[cfg(feature="stable")]
+#[cfg(feature="kernel_4_11")]
 #[derive(Clone, Copy)]
 pub enum Action {
     MapCreate,
@@ -194,6 +213,18 @@ impl fmt::Binary for Action {
 
 /// Enum used to specify which type of map to create.
 /// TODO: Have document reference explination of types.
+#[cfg(feature="stable")]
+#[cfg(feature="kernel_3_18")]
+pub enum MapType {
+    Unspec,
+    Hash,
+    Array
+}
+
+/// Enum used to specify which type of map to create.
+/// TODO: Have document reference explination of types.
+#[cfg(feature="stable")]
+#[cfg(feature="kernel_4_11")]
 pub enum MapType {
     Unspec,
     Hash,
@@ -211,6 +242,17 @@ pub enum MapType {
 
 /// Enum used to specify type of eBPF program being loaded.
 /// TODO: Have document reference explination of types.
+#[cfg(feature="stable")]
+#[cfg(feature="linux_3_18")]
+pub enum ProgramType {
+	Unspec,
+	SocketFilter
+}
+
+/// Enum used to specify type of eBPF program being loaded.
+/// TODO: Have document reference explination of types.
+#[cfg(feature="stable")]
+#[cfg(feature="linux_4_11")]
 pub enum ProgramType {
 	Unspec,
 	SocketFilter,
@@ -228,6 +270,7 @@ pub enum ProgramType {
 }
 
 /// Enum used to specify behavior when writing to eBPF map.
+#[cfg(feature="stable")]
 pub enum WriteOption {
     /// Writes value regardless of if value exists.
     CreateOrUpdate,

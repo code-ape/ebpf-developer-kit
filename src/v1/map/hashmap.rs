@@ -27,6 +27,7 @@ use ::v1::map::core::{
     CreateResult
 };
 
+#[cfg(feature = "beta")]
 pub struct HashMap<K: Clone, V: Clone> {
     map_fd: MapFd,
     max_entries: u32,
@@ -156,6 +157,19 @@ impl<K: Clone, V: Clone> DeletableEntries for HashMap<K,V> {
         unsafe { map_delete_elem(map_elem_attr) }
     }
 }
+
+
+impl<'a,K,V> IntoIterator for &'a HashMap<K,V>
+    where K: Clone, V: Clone
+{
+    type Item = (K,V);
+    type IntoIter = Iter<'a,HashMap<K,V>,K,V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

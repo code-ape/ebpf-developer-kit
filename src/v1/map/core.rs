@@ -3,9 +3,6 @@ use std::io::Error;
 
 use ::v1::lowlevel::WriteOption;
 
-use ::v1::map::hashmap::HashMap;
-use ::v1::map::array::Array;
-
 /* 
 // TODO: how to handle errors in a helpful way
 pub enum CreationError {
@@ -69,23 +66,15 @@ pub struct Iter<'a,M,K,V>
     last_key: Option<K>,
 }
 
-impl<'a,K,V> IntoIterator for &'a HashMap<K,V>
-    where K: Clone, V: Clone
+impl<'a,M,K,V> Iter<'a,M,K,V>
+    where M: Map<Key=K,Value=V> + 'a,
+          K: Clone, V: Clone
 {
-    type Item = (K,V);
-    type IntoIter = Iter<'a,HashMap<K,V>,K,V>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Iter { map: self, last_key: None }
-    }
-}
-
-impl<'a,V: Clone> IntoIterator for &'a Array<V> {
-    type Item = (u32,V);
-    type IntoIter = Iter<'a,Array<V>,u32,V>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Iter { map: self, last_key: None }
+    pub fn new(map: &'a M) -> Iter<'a,M,K,V> {
+        Iter {
+            map: map,
+            last_key: None
+        }
     }
 }
 

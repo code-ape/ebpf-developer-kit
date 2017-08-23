@@ -35,11 +35,12 @@
 //!
 
 mod core;
-
-mod array;
-mod hashmap;
-
 pub mod lowlevel;
+
+#[cfg(feature = "kernel_3_18")]
+mod array;
+#[cfg(feature = "kernel_3_18")]
+mod hashmap;
 
 pub use ::v1::lowlevel::WriteOption;
 
@@ -51,5 +52,7 @@ pub use self::core::{
     Iter,
 };
 
+#[cfg(feature = "kernel_3_18")]
 pub use self::array::Array;
+#[cfg(feature = "kernel_3_18")]
 pub use self::hashmap::HashMap;

@@ -25,6 +25,7 @@ use ::v1::map::core::{
     CreateResult
 };
 
+#[cfg(feature = "beta")]
 pub struct Array<V> {
     map_fd: MapFd,
     max_entries: u32,
@@ -129,6 +130,15 @@ impl<V: Clone> MutableMap for Array<V> {
             flags: WriteOption::CreateOrUpdate as u64
         };
         unsafe { map_update_elem(map_elem_attr) }
+    }
+}
+
+impl<'a,V: Clone> IntoIterator for &'a Array<V> {
+    type Item = (u32,V);
+    type IntoIter = Iter<'a,Array<V>,u32,V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::new(self)
     }
 }
 
