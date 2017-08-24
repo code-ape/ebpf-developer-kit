@@ -61,8 +61,9 @@ pub type __aligned_u64 = __u64;
 ///
 /// ```
 /// // Taken from ebpf::v1::map::mod.rs;
+///
 /// use std::io::Error;
-/// use ebpf::v1::lowlevel::{MapElemAttr, MapFd, ebpf_syscall, Action};
+/// use ebpf_toolchain::v1::lowlevel::{MapElemAttr, MapFd, ebpf_syscall, Action};
 /// 
 /// pub unsafe fn map_lookup_elem(map_elem_attr: MapElemAttr) -> Result<(),Error> {
 ///     match ebpf_syscall(Action::MapLookupElem, map_elem_attr) {
@@ -84,8 +85,9 @@ pub type __aligned_u64 = __u64;
 /// use std::io::Error;
 /// use std::mem;
 /// use std::marker::PhantomData;
-/// use ebpf::v1::map::lowlevel::map_lookup_elem;
-/// use ebpf::v1::lowlevel::{MapElemAttr, MapFd, Action};
+///
+/// use ebpf_toolchain::v1::map::lowlevel::map_lookup_elem;
+/// use ebpf_toolchain::v1::lowlevel::{MapElemAttr, MapFd, Action};
 ///
 /// struct HashMap<K,V> {
 ///     map_fd: MapFd,
@@ -111,7 +113,6 @@ pub type __aligned_u64 = __u64;
 /// }
 /// ```
 ///
-/// **STABLE**
 #[cfg(feature="stable")]
 #[cfg(feature="kernel_3_18")]
 pub unsafe fn ebpf_syscall<T: Attr>(action: Action, attr: T) -> c_long {
@@ -125,7 +126,6 @@ pub unsafe fn ebpf_syscall<T: Attr>(action: Action, attr: T) -> c_long {
 
 /// Enum of all actions possible with Linux `bpf` syscall.
 #[cfg(feature="stable")]
-#[cfg(feature="kernel_3_18")]
 #[derive(Clone, Copy)]
 pub enum Action {
     MapCreate,
@@ -134,24 +134,13 @@ pub enum Action {
     MapDeleteElem,
     MapGetNextKey,
     ProgLoad,
+    #[cfg(feature="kernel_4_04")]
     ObjPin,
-    ObjGet
-}
-
-/// Enum of all actions possible with Linux `bpf` syscall.
-#[cfg(feature="stable")]
-#[cfg(feature="kernel_4_11")]
-#[derive(Clone, Copy)]
-pub enum Action {
-    MapCreate,
-    MapLookupElem,
-    MapUpdateElem,
-    MapDeleteElem,
-    MapGetNextKey,
-    ProgLoad,
-    ObjPin,
+    #[cfg(feature="kernel_4_04")]
     ObjGet,
+    #[cfg(feature="kernel_4_11")]
     ProgAttach,
+    #[cfg(feature="kernel_4_11")]
     ProgDetach
 }
 
@@ -214,30 +203,34 @@ impl fmt::Binary for Action {
 /// Enum used to specify which type of map to create.
 /// TODO: Have document reference explination of types.
 #[cfg(feature="stable")]
-#[cfg(feature="kernel_3_18")]
 pub enum MapType {
     Unspec,
+    #[cfg(feature="kernel_3_19")]
     Hash,
-    Array
-}
-
-/// Enum used to specify which type of map to create.
-/// TODO: Have document reference explination of types.
-#[cfg(feature="stable")]
-#[cfg(feature="kernel_4_11")]
-pub enum MapType {
-    Unspec,
-    Hash,
+    #[cfg(feature="kernel_3_19")]
     Array,
+    #[cfg(feature="kernel_4_02")]
     ProgArray,
+    #[cfg(feature="kernel_4_03")]
     PerfEventArray,
+    #[cfg(feature="kernel_4_06")]
     PerCpuHash,
+    #[cfg(feature="kernel_4_06")]
     PerCpuArray,
+    #[cfg(feature="kernel_4_06")]
     StackTrace,
+    #[cfg(feature="kernel_4_08")]
     CgroupArray,
+    #[cfg(feature="kernel_4_10")]
     LruHash,
+    #[cfg(feature="kernel_4_10")]
     LruPerCpuHash,
-    LpmTrie
+    #[cfg(feature="kernel_4_11")]
+    LpmTrie,
+    #[cfg(feature="kernel_4_12")]
+    ArrayOfMaps,
+    #[cfg(feature="kernel_4_12")]
+    HashOfMaps
 }
 
 /// Enum used to specify type of eBPF program being loaded.
@@ -252,21 +245,32 @@ pub enum ProgramType {
 /// Enum used to specify type of eBPF program being loaded.
 /// TODO: Have document reference explination of types.
 #[cfg(feature="stable")]
-#[cfg(feature="linux_4_11")]
 pub enum ProgramType {
 	Unspec,
+    #[cfg(feature="linux_3_19")]
 	SocketFilter,
+    #[cfg(feature="linux_4_01")]
 	Kprobe,
+	#[cfg(feature="linux_4_01")]
 	SchedCls,
+	#[cfg(feature="linux_4_01")]
 	SchedAct,
+	#[cfg(feature="linux_4_07")]
 	Tracepoint,
+	#[cfg(feature="linux_4_08")]
 	Xdp,
+	#[cfg(feature="linux_4_09")]
 	PerfEvent,
+	#[cfg(feature="linux_4_10")]
 	CgroupSkb,
+	#[cfg(feature="linux_4_10")]
 	CgroupSock,
+	#[cfg(feature="linux_4_10")]
 	LwtIn,
+	#[cfg(feature="linux_4_10")]
 	LwtOut,
-    LwtXmit
+    #[cfg(feature="linux_4_10")]
+	LwtXmit
 }
 
 /// Enum used to specify behavior when writing to eBPF map.

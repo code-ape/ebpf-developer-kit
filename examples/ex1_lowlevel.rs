@@ -1,11 +1,13 @@
 
-extern crate ebpf;
+extern crate ebpf_toolchain;
 
-use ebpf::v1::map::lowlevel::{
+use ebpf_toolchain::v1 as ebpf;
+
+use ebpf::map::lowlevel::{
     create_map, map_update_elem, map_lookup_elem
 };
 
-use ebpf::v1::lowlevel::{
+use ebpf::lowlevel::{
     Action, MapCreateAttr, MapElemAttr, MapType
 };
 

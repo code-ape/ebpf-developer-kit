@@ -58,6 +58,14 @@ Asserting value retrieved equals 101.
 +++ exited with 0 +++
 ```
 
+## Understanding the libraries structure
+
+This library attempts to make it as simple as possible to factor in for all the following things:
+
+1. Version of the Linux Kernel you're using. Because different eBPF features were added during different versions.
+2. The stability of the library. This is so you can use the library in stable, beta, or alpha; which means you can use the library with confidence (assuming you stick to stable) that the API won't change.
+3. The versioning of the library. Because this librarys operates at such a low level, changes API's for it can dramatically hurt users. Thus each version of the library lives in it's own namespace. This means that if you build on version 1 and later version two is done with a better API, then you can continue to use version one in legacy systems while also using version 2 without worry. This means that anything in ebpf-rs marked stable is **guarenteed** to never move or change as you use newer versions.
+
 ## References
 
 ### From Linux

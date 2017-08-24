@@ -4,7 +4,7 @@
 //! # Examples
 //!
 //! ```
-//! use ebpf::v1::map::{
+//! use ebpf_toolchain::v1::map::{
 //!     HashMap as EbpfHashMap,
 //!     WriteOption,
 //!     Map,
@@ -37,9 +37,9 @@
 mod core;
 pub mod lowlevel;
 
-#[cfg(feature = "kernel_3_18")]
+#[cfg(feature = "kernel_3_19")]
 mod array;
-#[cfg(feature = "kernel_3_18")]
+#[cfg(feature = "kernel_3_19")]
 mod hashmap;
 
 pub use ::v1::lowlevel::WriteOption;
@@ -52,7 +52,7 @@ pub use self::core::{
     Iter,
 };
 
-#[cfg(feature = "kernel_3_18")]
+#[cfg(feature = "kernel_3_19")]
 pub use self::array::Array;
-#[cfg(feature = "kernel_3_18")]
+#[cfg(feature = "kernel_3_19")]
 pub use self::hashmap::HashMap;

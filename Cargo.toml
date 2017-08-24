@@ -1,19 +1,29 @@
 [package]
-name = "ebpf"
+name = "ebpf-toolchain"
 version = "0.1.0"
-authors = ["ferris <ferris@ferrisellsi.com>"]
+authors = ["ferris <ferris@ferrisellis.com>"]
+
+[dependencies]
+libc = "0.2"
+xmas-elf = { version = "0.6.0", optional = true }
+
+[profile.dev]
+
 
 [features]
 
 # default for usage is the newest version
-default = ["kernel_4_11", "beta"]
+default = ["kernel_4_09", "v1", "beta"]
+
+# versions of the library
+v1 = []
 
 # for marking stability of feature
 stable = []
 beta = ["stable"]
 alpha = ["beta"]
 
-# 
+# features by kernel, plus those inherited from prior kernels
 kernel_3_18 = [
     # enable maps and use hashmap and array type maps
     "maps",
@@ -22,15 +32,19 @@ kernel_3_18 = [
     # enable socket filter usage
     "socket_filter"
 ]
-
-kernel_4_11 = [
-    # enable maps and use hashmap and array type maps
-    "maps",
-    # enable loading elf files for usage
-    "elf_loader",
-    # enable socket filter usage
-    "socket_filter"
-]
+kernel_3_19 = ["kernel_3_18"]
+kernel_4_01 = ["kernel_3_19"]
+kernel_4_02 = ["kernel_4_01"]
+kernel_4_03 = ["kernel_4_02"]
+kernel_4_04 = ["kernel_4_03"]
+kernel_4_05 = ["kernel_4_04"]
+kernel_4_06 = ["kernel_4_05"]
+kernel_4_07 = ["kernel_4_06"]
+kernel_4_08 = ["kernel_4_06"]
+kernel_4_09 = ["kernel_4_08"]
+kernel_4_10 = ["kernel_4_09"]
+kernel_4_11 = ["kernel_4_10"]
+kernel_4_12 = ["kernel_4_11"]
 
 # enable manipulation of maps
 maps = []
@@ -39,8 +53,3 @@ elf_loader = ["xmas-elf"]
 # enable usage of programs for socket filtering
 socket_filter = []
 
-
-[dependencies]
-libc = "0.2"
-
-xmas-elf = { version = "0.6.0", optional = true }

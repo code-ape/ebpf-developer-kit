@@ -1,0 +1,12 @@
+[package]
+name = "ebpf-toolchain-cdylib"
+version = "0.1.0"
+authors = ["ferris <ferris@ferrisellis.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies.ebpf-toolchain]
+path = "../../."
+default-features = false
+features = ["v1", "beta", "kernel_4_11"]

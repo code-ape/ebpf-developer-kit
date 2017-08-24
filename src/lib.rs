@@ -2,4 +2,7 @@
 
 extern crate libc;
 
+#[cfg(feature = "elf_loader")]
+extern crate xmas_elf;
+
 pub mod v1;
