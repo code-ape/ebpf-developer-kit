@@ -14,6 +14,10 @@ use ebpf::elf_loader::{
 
 fn main() {
 
+    let kernel_info = ebpf::lowlevel::KernelInfo::get();
+
+    println!("kernel_info = {:?}", kernel_info);
+
     let file = "ebpf_prog_1.o";
 
     println!("Loading elf file: {}", file);
@@ -21,10 +25,10 @@ fn main() {
     let mut f_data = Vec::new();
     f.read_to_end(&mut f_data);
     let ef = ElfFile::new(f_data.as_slice()).expect("Failed to parse ELF file!");
-    println!("ef = {:?}", ef);
+    //println!("ef = {:?}", ef);
     for section in ef.section_iter() {
         //println!("section = {:?}", section);
         println!("section name = {:?}", section.get_name(&ef));
     }
-    let prog = EbpfProgram::from_elf_file(&ef);
+    let prog = EbpfProgram::from_elf_file(&ef, "license", "classifier").unwrap();
 }

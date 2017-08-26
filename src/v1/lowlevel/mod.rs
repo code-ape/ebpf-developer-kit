@@ -8,13 +8,16 @@ use libc::{
     __u64,
     SYS_bpf,
     syscall as linux_syscall,
+    // To get kernel information
+    uname,
+    utsname
 };
 
 use std::mem;
 use std::slice;
 use std::fmt;
 use std::os::unix::io::RawFd;
-
+use std::str;
 
 /// Type alias to match use of a type named `__aligned_u64` in the Linux Kernel
 /// code.
@@ -67,7 +70,7 @@ pub type __aligned_u64 = __u64;
 /// 
 /// pub unsafe fn map_lookup_elem(map_elem_attr: MapElemAttr) -> Result<(),Error> {
 ///     match ebpf_syscall(Action::MapLookupElem, map_elem_attr) {
-///         0 => Ok(()),
+///         0 => Ok(()),.unwrap().
 ///         -1 => Err(Error::last_os_error()),
 ///         n => unreachable!("Syscall returned number other than 0 or 1: {}", n)
 ///     }
@@ -380,6 +383,90 @@ impl MapFd {
     /// is used appropriately and because there's no
     /// guarentee of lifetime validity.
     pub unsafe fn get_fd(&self) -> RawFd { self.0 }
+}
+
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct KernelRelease {
+    major: u8,
+    minor: u8,
+    patch: u8
+}
+
+impl KernelRelease {
+    fn from_string(s: String) -> Option<Self> {
+        let str_parts : Vec<&str> = s.split('.').collect();
+        if str_parts.len() != 3 { return None }
+        Some(KernelRelease{
+            major: match str_parts[0].parse::<u8>() {
+                Ok(v) => v,
+                Err(e) => return None
+            },
+            minor: match str_parts[1].parse::<u8>() {
+                Ok(v) => v,
+                Err(e) => return None
+            },
+            patch: match str_parts[2].parse::<u8>() {
+                Ok(v) => v,
+                Err(e) => return None
+            },
+        }) 
+    }
+}
+
+#[derive(Debug)]
+pub struct KernelInfo {
+    pub sysname: String,
+    pub nodename: String,
+    pub release: KernelRelease,
+    pub version: String,
+    pub machine: String,
+    pub domainname: String
+}
+
+impl KernelInfo {
+    pub fn get() -> Option<Self> {
+        let mut uts_name : utsname = unsafe { mem::zeroed() };
+        unsafe { uname(&mut uts_name) };
+        Some(KernelInfo {
+            sysname: match i8_slice_to_string(&uts_name.sysname) {
+                Ok(s) => s,
+                Err(e) => return None
+            },
+            nodename: match i8_slice_to_string(&uts_name.nodename) {
+                Ok(s) => s,
+                Err(e) => return None
+            },
+            release: match i8_slice_to_string(&uts_name.release) {
+                Ok(s) => match KernelRelease::from_string(s) {
+                    Some(kr) => kr,
+                    None => return None   
+                },
+                Err(e) => return None
+            },
+            version: match i8_slice_to_string(&uts_name.version) {
+                Ok(s) => s,
+                Err(e) => return None
+            },
+            machine: match i8_slice_to_string(&uts_name.machine) {
+                Ok(s) => s,
+                Err(e) => return None
+            },
+            domainname: match i8_slice_to_string(&uts_name.domainname) {
+                Ok(s) => s,
+                Err(e) => return None
+            },
+        })
+    }
+}
+
+fn i8_slice_to_string(a: &[i8]) -> Result<String, str::Utf8Error> {
+    let a_u8 : &[u8] = unsafe { mem::transmute(a) };
+    match str::from_utf8(a_u8) {
+        Ok(s) => Ok(s.trim_matches('\0').to_string()),
+        Err(e) => Err(e)
+    }
 }
 
 /*

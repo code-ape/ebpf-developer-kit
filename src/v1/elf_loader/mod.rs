@@ -2,6 +2,8 @@
 
  use ::v1::lowlevel::{
     ProgramType,
+    KernelRelease,
+    KernelInfo
  };
 
  pub use xmas_elf::ElfFile;
@@ -11,17 +13,21 @@
     instructions: &'a [usize],
     license: [char;8],
     log_level: u32,
-    kern_version: (u8,u8,u8) //TODO: make this a struct
+    kern_version: KernelRelease
+    
  }
 
 impl<'a> EbpfProgram<'a> {
-    pub fn from_elf_file(elf_file: &elf::ElfFile) -> Self {
-        EbpfProgram {
+    pub fn from_elf_file(elf_file: &elf::ElfFile) -> Option<Self> {
+        Some(EbpfProgram {
             program_type: ProgramType::Unspec, //TODO
             instructions: &[],
             license: ['G','P','L',' ',' ',' ',' ',' '],
             log_level: 1,
-            kern_version: (0,0,0)
-        }
+            kern_version: match KernelInfo::get() {
+                Some(ki) => ki.release,
+                None => return None
+            }
+        })
     }
 }
