@@ -70,7 +70,7 @@ pub type __aligned_u64 = __u64;
 /// 
 /// pub unsafe fn map_lookup_elem(map_elem_attr: MapElemAttr) -> Result<(),Error> {
 ///     match ebpf_syscall(Action::MapLookupElem, map_elem_attr) {
-///         0 => Ok(()),.unwrap().
+///         0 => Ok(()),
 ///         -1 => Err(Error::last_os_error()),
 ///         n => unreachable!("Syscall returned number other than 0 or 1: {}", n)
 ///     }
@@ -239,15 +239,7 @@ pub enum MapType {
 /// Enum used to specify type of eBPF program being loaded.
 /// TODO: Have document reference explination of types.
 #[cfg(feature="stable")]
-#[cfg(feature="linux_3_18")]
-pub enum ProgramType {
-	Unspec,
-	SocketFilter
-}
-
-/// Enum used to specify type of eBPF program being loaded.
-/// TODO: Have document reference explination of types.
-#[cfg(feature="stable")]
+#[derive(Debug)]
 pub enum ProgramType {
 	Unspec,
     #[cfg(feature="linux_3_19")]
@@ -413,6 +405,15 @@ impl KernelRelease {
             },
         }) 
     }
+}
+
+
+#[derive(Debug)]
+#[repr(C)]
+pub enum EbpfProgLoadLogLevel {
+    None,
+    Normal,
+    Verbose
 }
 
 #[derive(Debug)]
