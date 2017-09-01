@@ -1,7 +1,7 @@
 
-extern crate ebpf_toolchain;
+extern crate ebpf_development_kit;
 
-use ebpf_toolchain::v1 as ebpf;
+use ebpf_development_kit::v1 as ebpf;
 use ebpf::map::{
     Map,
     DeletableEntries,

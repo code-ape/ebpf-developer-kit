@@ -1,7 +1,23 @@
-# eBPF Rust (ebpf-rs)
-Library for using eBPF from Rust
+# eBPF Developer Kit
 
-## Trying an example
+This project aims to provide a safe, stable, library for developing eBPF applications.
+It is written in Rust and ported to C and Python with plans for support for more languages in the future.
+
+## Table of contents
+
+1. [Example usage](#example-usage)
+    1. [Rust example](#rust-example)
+    2. [Python example](#python-example)
+    3. [C example](#c-example)
+    4. [Validating syscalls](#validating-syscalls)
+2. [What is eBPF?](#what-is-ebpf)
+3. [Troubleshooting]()
+
+## Example Usage
+
+Below is an example of creating an eBPF map
+
+### Rust Example
 
 Let's look at `examples/ex1.rs` which contains the following code:
 
@@ -30,6 +46,14 @@ fn main() {
 }
 ```
 
+### Python Example
+**TODO**
+
+### C Example
+**TODO**
+
+### Validating syscalls
+
 We can run this code by doing the following:
 
 ```
@@ -57,6 +81,10 @@ bpf(BPF_MAP_LOOKUP_ELEM, {map_fd=3, key=0x7ffc6a8e9720, value=0x7ffc6a8e9724}, 3
 Asserting value retrieved equals 101.
 +++ exited with 0 +++
 ```
+
+
+## What is eBPF?
+**TODO**
 
 ## Understanding the libraries structure
 

@@ -1,88 +1,99 @@
 use xmas_elf as elf;
 
+use std;
+
 use self::elf::sections::{
-    SectionHeader,
     SectionData
 };
 
 use ::v1::lowlevel::{
     ProgramType,
-    KernelRelease,
     KernelInfo,
+    EbpfProgLoadLogLevel,
 };
 
-pub use ::v1::lowlevel::EbpfProgLoadLogLevel;
+use ::v1::program::EbpfProgram;
 
-
-pub use xmas_elf::ElfFile;
-
-#[derive(Debug)]
-pub struct EbpfProgram<'a> {
-    program_type: ProgramType,
-    instructions: &'a [usize],
-    license: [char;8],
-    log_level: EbpfProgLoadLogLevel,
-    kern_version: KernelRelease
-}
+pub use xmas_elf::ElfFile as File;
 
 #[derive(Debug)]
-pub enum EbpfProgramError<'a> {
+pub enum LoadError<'a> {
     Unspec,
+    Other(&'a str),
     CantGetSection(&'a str),
     CantGetSectionData(&'a str),
     CantGetSectionBytes,
-    CantGetKernelRelease,
+    PartialInstruction
 }
 
-type EbpfProgResult<'a> = Result<EbpfProgram<'a>, EbpfProgramError<'a>>;
+type LoadResult<'a> = Result<EbpfProgram<'a>, LoadError<'a>>;
 
-fn get_elf_section<'a,'b>(elf_file: &'b ElfFile, section_name: &'a str)
-    -> Result<SectionHeader<'b>,EbpfProgramError<'a>> {
-    Ok(
-        elf_file.find_section_by_name(section_name).ok_or(
-            EbpfProgramError::CantGetSection(section_name))?
-    )
+pub trait EbpfProgramResource<'a> {
+    fn attempt_load(&self) -> LoadResult<'a>;
 }
 
-fn get_elf_section_data<'a,'b>(elf_file: &'b ElfFile, section: &'b SectionHeader)
-    -> Result<SectionData<'b>,EbpfProgramError<'a>> {
-    match section.get_data(elf_file) {
-        Ok(data) => Ok(data),
-        Err(error) => Err(EbpfProgramError::CantGetSectionData(error))
+pub struct ProgramInfo<'a> {
+    pub elf_file: File<'a>,
+    pub program_type: ProgramType,
+    pub license_classifier: &'a str,
+    pub program_classifier: &'a str
+}
+
+impl<'a> EbpfProgramResource<'a> for ProgramInfo<'a> {
+    fn attempt_load(&self) -> LoadResult<'a> {
+
+        let l_section = 
+            self.elf_file
+                .find_section_by_name(&self.license_classifier)
+                .ok_or(LoadError::CantGetSection(&self.license_classifier))?;
+
+        let l_section_data = match l_section.get_data(&self.elf_file) {
+            Ok(data) => Ok(data),
+            Err(error) => Err(LoadError::CantGetSectionData(error))
+        }?;
+
+        let l_bytes = extract_undefined_section(l_section_data)?;
+
+        let p_section = 
+            self.elf_file
+                .find_section_by_name(&self.program_classifier)
+                .ok_or(LoadError::CantGetSection(&self.program_classifier))?;
+
+        let p_section_data = match p_section.get_data(&self.elf_file) {
+            Ok(data) => Ok(data),
+            Err(error) => Err(LoadError::CantGetSectionData(error))
+        }?;
+
+        let p_bytes_u8 = extract_undefined_section(p_section_data)?;
+
+
+        let p_bytes : &[u64] = match p_bytes_u8.len() % 8 {
+            0 => unsafe {
+                Ok(std::slice::from_raw_parts(
+                    &(p_bytes_u8[0]) as *const u8 as *const u64,
+                    p_bytes_u8.len() / 8
+                ))
+            },
+            _ => Err(LoadError::PartialInstruction)
+        }?;
+
+        println!("license_bytes = {:?}", l_bytes);
+        println!("program_bytes = {:?}", p_bytes);
+
+        Ok(EbpfProgram::new(
+            self.program_type.clone(),
+            p_bytes,
+            l_bytes
+        ))
     }
 }
 
-fn extract_undefined_section<'a,'b>(section: &'b SectionData) -> Result<&'b [u8],EbpfProgramError<'a>> {
-    match *section {
+fn extract_undefined_section(section: SectionData)
+    -> Result<&[u8],LoadError> {
+    match section {
         SectionData::Undefined(data) => Ok(data),
-        _ => Err(EbpfProgramError::CantGetSectionBytes)
+        _ => Err(LoadError::CantGetSectionBytes)
     }
 }
 
-impl<'a> EbpfProgram<'a> {
-    pub fn from_elf_file(elf_file: &ElfFile,
-                         license_classifier: &'a str,
-                         program_classifier: &'a str) -> EbpfProgResult<'a> {
-        let license_section = get_elf_section(elf_file, license_classifier)?;
-        let license_data = get_elf_section_data(elf_file, &license_section)?;
-        let license_bytes = extract_undefined_section(&license_data)?;
 
-        let program_section = get_elf_section(elf_file, program_classifier)?;
-
-        let program_data = get_elf_section_data(elf_file, &program_section)?;
-
-        println!("license_data = {:?}", license_data);
-
-
-
-        Ok(EbpfProgram {
-            program_type: ProgramType::Unspec, //TODO
-            instructions: &[],
-            license: ['G','P','L',' ',' ',' ',' ',' '],
-            log_level: EbpfProgLoadLogLevel::Normal,
-            kern_version: KernelInfo::get()
-                            .ok_or(EbpfProgramError::CantGetKernelRelease)?
-                            .release,
-        })
-    }
-}

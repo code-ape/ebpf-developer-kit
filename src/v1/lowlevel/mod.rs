@@ -66,7 +66,7 @@ pub type __aligned_u64 = __u64;
 /// // Taken from ebpf::v1::map::mod.rs;
 ///
 /// use std::io::Error;
-/// use ebpf_toolchain::v1::lowlevel::{MapElemAttr, MapFd, ebpf_syscall, Action};
+/// use ebpf_development_kit::v1::lowlevel::{MapElemAttr, MapFd, ebpf_syscall, Action};
 /// 
 /// pub unsafe fn map_lookup_elem(map_elem_attr: MapElemAttr) -> Result<(),Error> {
 ///     match ebpf_syscall(Action::MapLookupElem, map_elem_attr) {
@@ -89,8 +89,8 @@ pub type __aligned_u64 = __u64;
 /// use std::mem;
 /// use std::marker::PhantomData;
 ///
-/// use ebpf_toolchain::v1::map::lowlevel::map_lookup_elem;
-/// use ebpf_toolchain::v1::lowlevel::{MapElemAttr, MapFd, Action};
+/// use ebpf_development_kit::v1::map::lowlevel::map_lookup_elem;
+/// use ebpf_development_kit::v1::lowlevel::{MapElemAttr, MapFd, Action};
 ///
 /// struct HashMap<K,V> {
 ///     map_fd: MapFd,
@@ -239,32 +239,32 @@ pub enum MapType {
 /// Enum used to specify type of eBPF program being loaded.
 /// TODO: Have document reference explination of types.
 #[cfg(feature="stable")]
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum ProgramType {
 	Unspec,
-    #[cfg(feature="linux_3_19")]
+    #[cfg(feature="kernel_3_19")]
 	SocketFilter,
-    #[cfg(feature="linux_4_01")]
+    #[cfg(feature="kernel_4_01")]
 	Kprobe,
-	#[cfg(feature="linux_4_01")]
+	#[cfg(feature="kernel_4_01")]
 	SchedCls,
-	#[cfg(feature="linux_4_01")]
+	#[cfg(feature="kernel_4_01")]
 	SchedAct,
-	#[cfg(feature="linux_4_07")]
+	#[cfg(feature="kernel_4_07")]
 	Tracepoint,
-	#[cfg(feature="linux_4_08")]
+	#[cfg(feature="kernel_4_08")]
 	Xdp,
-	#[cfg(feature="linux_4_09")]
+	#[cfg(feature="kernel_4_09")]
 	PerfEvent,
-	#[cfg(feature="linux_4_10")]
+	#[cfg(feature="kernel_4_10")]
 	CgroupSkb,
-	#[cfg(feature="linux_4_10")]
+	#[cfg(feature="kernel_4_10")]
 	CgroupSock,
-	#[cfg(feature="linux_4_10")]
+	#[cfg(feature="kernel_4_10")]
 	LwtIn,
-	#[cfg(feature="linux_4_10")]
+	#[cfg(feature="kernel_4_10")]
 	LwtOut,
-    #[cfg(feature="linux_4_10")]
+    #[cfg(feature="kernel_4_10")]
 	LwtXmit
 }
 
@@ -308,14 +308,14 @@ pub struct MapElemAttr {
 #[repr(C)]
 #[derive(Debug)]
 pub struct ProgLoadAttr {
-    prog_type: __u32,
-    insn_cnt: __u32,
-    insns: __aligned_u64,
-    license: __aligned_u64,
-    log_level: __u32,
-    log_size: __u32,
-    log_buf: __aligned_u64,
-    kern_version: __u32
+    pub prog_type: __u32,
+    pub insn_cnt: __u32,
+    pub insns: __aligned_u64,
+    pub license: __aligned_u64,
+    pub log_level: __u32,
+    pub log_size: __u32,
+    pub log_buf: __aligned_u64,
+    pub kern_version: __u32
 }
 
 /// C struct used to pin and get eBPF maps,
@@ -357,6 +357,7 @@ macro_rules! ImplAttr {
 // implement Attrs
 ImplAttr!{MapCreateAttr}
 ImplAttr!{MapElemAttr}
+ImplAttr!{ProgLoadAttr}
 
 
 /// Holds file descriptor of an eBPF map.
@@ -378,8 +379,27 @@ impl MapFd {
 }
 
 
-#[repr(C)]
+/// Holds file descriptor of an eBPF program.
 #[derive(Debug)]
+pub struct ProgramFd(RawFd);
+
+impl ProgramFd {
+    /// Casts a `RawFd` to a `ProgramFd`. Marked unsafe because
+    /// it is the responsibility of the user to ensure the
+    /// `RawFd` use does in fact refer to an eBPF map.
+    pub unsafe fn new(fd: RawFd) -> ProgramFd { ProgramFd(fd) }
+
+    /// Create a copy of the file descriptor and return it
+    /// as a `RawFd`. Marked as unsafe because it is the
+    /// responsibility of the user to ensure the `RawFd`
+    /// is used appropriately and because there's no
+    /// guarentee of lifetime validity.
+    pub unsafe fn get_fd(&self) -> RawFd { self.0 }
+}
+
+
+#[repr(C)]
+#[derive(Debug,Clone)]
 pub struct KernelRelease {
     major: u8,
     minor: u8,
@@ -393,27 +413,36 @@ impl KernelRelease {
         Some(KernelRelease{
             major: match str_parts[0].parse::<u8>() {
                 Ok(v) => v,
-                Err(e) => return None
+                Err(_) => return None
             },
             minor: match str_parts[1].parse::<u8>() {
                 Ok(v) => v,
-                Err(e) => return None
+                Err(_) => return None
             },
             patch: match str_parts[2].parse::<u8>() {
                 Ok(v) => v,
-                Err(e) => return None
+                Err(_) => return None
             },
         }) 
     }
 }
 
+impl Into<u32> for KernelRelease {
+    fn into(self) -> u32 {
+        return ((self.major as u32) << 16) +
+               ((self.minor as u32) << 8) +
+               (self.patch as u32);
+    }
+}
 
-#[derive(Debug)]
+
+#[derive(Debug,Clone)]
 #[repr(C)]
 pub enum EbpfProgLoadLogLevel {
     None,
     Normal,
-    Verbose
+    Verbose,
+    VeryVerbose
 }
 
 #[derive(Debug)]
@@ -433,30 +462,30 @@ impl KernelInfo {
         Some(KernelInfo {
             sysname: match i8_slice_to_string(&uts_name.sysname) {
                 Ok(s) => s,
-                Err(e) => return None
+                Err(_) => return None
             },
             nodename: match i8_slice_to_string(&uts_name.nodename) {
                 Ok(s) => s,
-                Err(e) => return None
+                Err(_) => return None
             },
             release: match i8_slice_to_string(&uts_name.release) {
                 Ok(s) => match KernelRelease::from_string(s) {
                     Some(kr) => kr,
                     None => return None   
                 },
-                Err(e) => return None
+                Err(_) => return None
             },
             version: match i8_slice_to_string(&uts_name.version) {
                 Ok(s) => s,
-                Err(e) => return None
+                Err(_) => return None
             },
             machine: match i8_slice_to_string(&uts_name.machine) {
                 Ok(s) => s,
-                Err(e) => return None
+                Err(_) => return None
             },
             domainname: match i8_slice_to_string(&uts_name.domainname) {
                 Ok(s) => s,
-                Err(e) => return None
+                Err(_) => return None
             },
         })
     }

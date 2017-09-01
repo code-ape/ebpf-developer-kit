@@ -4,7 +4,7 @@
 //! # Examples
 //!
 //! ```
-//! use ebpf_toolchain::v1::map::{
+//! use ebpf_development_kit::v1::map::{
 //!     HashMap as EbpfHashMap,
 //!     WriteOption,
 //!     Map,

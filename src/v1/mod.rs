@@ -9,5 +9,8 @@ pub mod map;
 #[cfg(feature = "elf_loader")]
 pub mod elf_loader;
 
+#[cfg(feature = "program")]
+pub mod program;
+
 #[cfg(feature = "socket_filter")]
 pub mod socket_filter;
