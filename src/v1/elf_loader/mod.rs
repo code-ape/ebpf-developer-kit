@@ -8,8 +8,6 @@ use self::elf::sections::{
 
 use ::v1::lowlevel::{
     ProgramType,
-    KernelInfo,
-    EbpfProgLoadLogLevel,
 };
 
 use ::v1::program::EbpfProgram;
