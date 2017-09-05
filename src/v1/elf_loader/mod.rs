@@ -1,6 +1,10 @@
 use xmas_elf as elf;
 
 use std;
+use std::fs;
+use std::io;
+use std::io::Read;
+use std::marker::PhantomData;
 
 use self::elf::sections::{
     SectionData
@@ -10,7 +14,10 @@ use ::v1::lowlevel::{
     ProgramType,
 };
 
-use ::v1::program::EbpfProgram;
+use ::v1::program as program;
+use self::program::{
+    EbpfProgram
+};
 
 pub use xmas_elf::ElfFile as File;
 
@@ -24,21 +31,37 @@ pub enum LoadError<'a> {
     PartialInstruction
 }
 
-type LoadResult<'a> = Result<EbpfProgram<'a>, LoadError<'a>>;
+type LoadResult<'a, T: EbpfProgram<'a>> = Result<T, LoadError<'a>>;
 
-pub trait EbpfProgramResource<'a> {
-    fn attempt_load(&self) -> LoadResult<'a>;
+pub trait EbpfProgramResource<'a, T: EbpfProgram<'a>> {
+    fn attempt_load(&self) -> Result<T, LoadError<'a>>;
 }
 
-pub struct ProgramInfo<'a> {
-    pub elf_file: File<'a>,
-    pub program_type: ProgramType,
-    pub license_classifier: &'a str,
-    pub program_classifier: &'a str
+pub struct ProgramInfo<'a, T: EbpfProgram<'a>> {
+    elf_file: File<'a>,
+    license_classifier: &'a str,
+    program_classifier: &'a str,
+    // phantom program type
+    program_type: PhantomData<T>,
 }
 
-impl<'a> EbpfProgramResource<'a> for ProgramInfo<'a> {
-    fn attempt_load(&self) -> LoadResult<'a> {
+impl<'a, T: EbpfProgram<'a>> ProgramInfo<'a, T> {
+    pub fn new(
+        elf_file: File<'a>,
+        license_classifier: &'a str,
+        program_classifier: &'a str
+    ) -> Self {
+        ProgramInfo {
+            elf_file: elf_file,
+            license_classifier: license_classifier,
+            program_classifier: program_classifier,
+            program_type: PhantomData
+        }
+    }
+}
+
+impl<'a, T: EbpfProgram<'a>> EbpfProgramResource<'a, T> for ProgramInfo<'a, T> {
+    fn attempt_load(&self) -> Result<T, LoadError<'a>> {
 
         let l_section = 
             self.elf_file
@@ -78,11 +101,7 @@ impl<'a> EbpfProgramResource<'a> for ProgramInfo<'a> {
         println!("license_bytes = {:?}", l_bytes);
         println!("program_bytes = {:?}", p_bytes);
 
-        Ok(EbpfProgram::new(
-            self.program_type.clone(),
-            p_bytes,
-            l_bytes
-        ))
+        Ok(T::new(p_bytes, l_bytes))
     }
 }
 
@@ -93,5 +112,4 @@ fn extract_undefined_section(section: SectionData)
         _ => Err(LoadError::CantGetSectionBytes)
     }
 }
-
 

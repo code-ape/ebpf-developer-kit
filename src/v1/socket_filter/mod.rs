@@ -14,11 +14,14 @@ use std::{
 };
 
 
-use ::v1::program::ProgramFd;
+use ::v1::program::{
+    ProgramFd,
+};
+
+use ::v1::program as program;
 
 use libc::{
     // syscalls
-    socket as raw_socket,
     setsockopt as raw_setsocketopt,
     if_nametoindex as raw_if_nametoindex,
     bind as raw_bind,
@@ -53,49 +56,39 @@ use libc::{
     MAP_NORESERVE,
 };
 
+use lib_networking::v1::linux as networking;
+
+use self::networking::packet as packet;
+use self::networking::packet::{
+    SockAddrLL,
+    PacketOption,
+    TPacketVersions,
+    TPacketReq3,
+    TPacketBdTs,
+    TPacketHdrVariant1,
+    TPacket3Hdr,
+    TPacketHdrV1,
+    TPacketBlockDesc,
+};
+
+use self::networking::socket as socket;
+use self::networking::socket::{
+    socket_syscall,
+    AddressFamily,
+};
+
+use self::networking::ether as ether;
+use self::networking::ether::{
+    Protocol
+};
+
+use self::networking::net as net;
+use self::networking::net::{
+    SocketDescription,
+    SockType
+};
+
 type OsResult<T> = Result<T,io::Error>;
-
-#[derive(Debug)]
-#[repr(C)]
-pub struct SockAddrLL {
-    sll_family: c_short,
-    sll_protocol: __u16,
-    sll_ifindex: c_int,
-    sll_hatype: c_short,
-    sll_pkttype: c_char,
-    sll_halen: c_char,
-    sll_addr: c_char,
-    padding: u32 // add 4 bytes to bring to 20 total
-}
-
-impl SockAddrLL {
-    fn new_blank() -> SockAddrLL {
-        SockAddrLL {
-            sll_family: 0,
-            sll_protocol: 0,
-            sll_ifindex: 0,
-            sll_hatype: 0,
-            sll_pkttype: 0,
-            sll_halen: 0,
-            sll_addr: 0,
-            padding: 0
-        }
-    }
-}
-
-impl Into<sockaddr> for SockAddrLL {
-    fn into(mut self) -> sockaddr {
-        self.sll_family = self.sll_family;
-        self.sll_protocol = self.sll_protocol.to_be();
-        self.sll_ifindex = self.sll_ifindex;//.to_be();
-        unsafe { 
-            let p = &self as *const SockAddrLL;
-            *(mem::transmute::<*const SockAddrLL, *const sockaddr>(p))
-         }
-    }
-}
-
-const ETH_P_ALL: c_int = 0x0003;
 
 #[derive(Debug)]
 pub struct Interface(c_uint);
@@ -108,7 +101,6 @@ impl Interface {
         self.0 as RawFd
     }
 }
-
 
 #[derive(Debug)]
 pub struct Socket(c_uint);
@@ -163,16 +155,17 @@ pub fn attach_ebpf_filter(socket: &Socket, ebpf_prog_fd: ProgramFd) -> OsResult<
 }
 
 pub fn open_raw_sock() -> OsResult<Socket> {
-    match unsafe {
-        raw_socket(
-            PF_PACKET,
-            SOCK_RAW | SOCK_NONBLOCK | SOCK_CLOEXEC,
-            ETH_P_ALL.to_be()
-        )
-    } {
-        n if n > 0 => unsafe { Ok(Socket::from_fd(n)) },
-        -1 => Err(io::Error::last_os_error()),
-        _ => unreachable!("syscall socket returned unreachable value!")
+    match socket_syscall(
+        AddressFamily::Packet,
+        SocketDescription {
+            sock_type: SockType::Raw,
+            nonblock: true,
+            close_on_exec: true
+        },
+        Protocol::All
+    ) {
+        Ok(n)=> unsafe { Ok(Socket::from_fd(n)) },
+        Err(e) => Err(e),
     }
 }
 
@@ -182,41 +175,28 @@ pub fn bind_to_interface(socket: &Socket, interface_name: &str) -> OsResult<()> 
 
     println!("interface_index = {:?}", interface_index);
 
-    let mut sll = SockAddrLL::new_blank();
-
-    sll.sll_family = AF_PACKET as i16;
-	sll.sll_protocol = ETH_P_ALL as u16;
-	sll.sll_ifindex = 2; //unsafe { interface_index.get_fd() };
+    let sll = SockAddrLL {
+        sll_family: AddressFamily::Packet as i16,
+        sll_protocol: Protocol::All as u16,
+        sll_ifindex: unsafe { interface_index.get_fd() },
+        sll_hatype: 0,
+        sll_pkttype: 0,
+        sll_halen: 0,
+        sll_addr: [0,0,0,0,0,0,0,0]
+    };
 
     println!("sll = {:?}", sll);
 
     bind(socket, sll)
 }
 
-
-#[derive(Debug)]
-#[repr(C)]
-struct TPacketReq3 {
-    tp_block_size: c_uint,      // Minimal size of contiguous block
-	tp_block_nr: c_uint,        // Number of blocks
-	tp_frame_size: c_uint,      // Size of frame
-	tp_frame_nr: c_uint,        // Total number of frames
-	tp_retire_blk_tov: c_uint,  // timeout in msecs
-	tp_sizeof_priv: c_uint,     // offset to private data area
-	tp_feature_req_word: c_uint,
-}
-
-const PACKET_RX_RING : c_int = 5;
-const TPACKET_V3 : c_int = 2;
-const PACKET_VERSION : c_int = 10;
-
 pub fn set_packet_version_v3(socket: &Socket) -> OsResult<()> {
     match unsafe {
         raw_setsocketopt(
             socket.get_fd(),
             SOL_PACKET,
-            PACKET_VERSION,
-            &TPACKET_V3 as *const c_int as *const c_void,
+            PacketOption::Version as i32,
+            &(TPacketVersions::TPACKET_V3 as i32) as *const c_int as *const c_void,
             mem::size_of::<c_int>() as u32
         )
     } {
@@ -244,7 +224,7 @@ pub fn set_socket_rx_ring(
         raw_setsocketopt(
             socket.get_fd(),
             SOL_PACKET,
-            PACKET_RX_RING,
+            PacketOption::RxRing as i32,
             &tp3 as *const TPacketReq3 as *const c_void,
             mem::size_of::<TPacketReq3>() as u32
         )
@@ -253,105 +233,6 @@ pub fn set_socket_rx_ring(
         -1 => return Err(io::Error::last_os_error()),
         _ => unreachable!("syscall setsockopt returned unreachable value!")   
     }
-}
-
-
-#[derive(Debug)]
-#[repr(C)]
-struct TPacketBdTs {
-    ts_sec: c_uint,
-    ts_usec_or_nsec: c_uint
-}
-
-#[derive(Debug)]
-#[repr(C)]
-struct TPacketHdrVariant1 {
-    tp_rxhash: __u32,
-    tp_vlan_tci: __u32,
-    tp_vlan_tpid: __u16,
-    tp_padding: __u16
-}
-
-#[derive(Debug)]
-#[repr(C)]
-pub struct TPacket3Hdr {
-    tp_next_offset: __u32,
-    tp_sec: __u32,
-    tp_nsec: __u32,
-    tp_snaplen: __u32,
-    tp_len: __u32,
-    tp_status: __u32,
-    tp_mac: __u16,
-    tp_net: __u16,
-    tp_hdr_variant_1: TPacketHdrVariant1,
-    tp_padding: __u8
-}
-
-#[derive(Debug)]
-#[repr(packed)]
-struct MacAddress([u8;6]);
-
-impl fmt::Display for MacAddress {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}",
-            self.0[0], self.0[1], self.0[2], self.0[3],
-            self.0[4], self.0[5]
-        )
-    }    
-}
-
-#[derive(Debug)]
-#[repr(packed)]
-pub struct EthHdr {
-    h_dest: MacAddress,
-    h_source: MacAddress,
-    h_proto: __u16
-}
-
-impl fmt::Display for EthHdr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Destination: {}, Source: {}, Proto: {:X}",
-            self.h_dest, self.h_source, self.h_proto
-        )
-    }    
-}
-
-impl TPacket3Hdr {
-    pub fn get_eth_hdr(&self) -> &EthHdr {
-        unsafe {
-            &(*((
-                (self as *const TPacket3Hdr as u64) + 
-                (self.tp_mac as u64)
-            ) as *const EthHdr))
-        }
-    }
-}
-
-impl fmt::Display for TPacket3Hdr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "EthHdr:: {}",
-            self.get_eth_hdr()
-        )
-    }
-}
-
-#[derive(Debug)]
-#[repr(C)]
-struct TPacketHdrV1 {
-    block_status: __u32,
-    num_pkts: __u32,
-    offset_to_first_pkt: __u32,
-    blk_len: __u32,
-    seq_num: __u64,
-    t_packet_bd_ts: TPacketBdTs
-}
-
-#[derive(Debug)]
-#[repr(C)]
-struct TPacketBlockDesc {
-    version: __u32,
-    offset_to_priv: __u32,
-    hdr: TPacketHdrV1
 }
 
 #[derive(Debug)]
@@ -522,3 +403,22 @@ pub fn mmap_rx_ring(
     }
 }
 
+
+pub enum PacketVersion {
+    V3
+}
+
+pub enum ReadMethod {
+    RxRing {
+        block_size: c_uint,
+        block_count: c_uint,
+        ring_timeout: c_uint
+    }
+}
+
+pub struct Info<'a> {
+    pub interface: &'a str,
+    pub packet_version: PacketVersion,
+    pub read_method: ReadMethod,
+    pub filter_program: program::SocketFilter<'a>,
+}

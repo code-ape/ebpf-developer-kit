@@ -20,7 +20,7 @@ use ebpf::{
 
 
 fn main() {
-
+    // TODO, put in libc issue
     println!("size_of(SockAddrLL) = {}",
         mem::size_of::<socket_filter::SockAddrLL>());
     println!("size_of(sockaddr) = {}",
@@ -39,13 +39,12 @@ fn main() {
 
     // Create elf::ProgramInfo, this holds all data needed to attempt loading
     // the program
-    let efpi = elf::ProgramInfo {
-        elf_file: ef,
-        program_type: ebpf::lowlevel::ProgramType::SocketFilter,
-        license_classifier: "license",
-        program_classifier: "classifier"
-    };
-    let ef = efpi.attempt_load().expect("Failed to load program!");
+    let efpi = elf::ProgramInfo::<program::SocketFilter>::new(
+        ef, "license", "classifier"
+    );
+    
+    let ef: program::SocketFilter = efpi.attempt_load()
+        .expect("Failed to load program!");
 
     let kernel_info = KernelInfo::get().expect("Failed to get kernel info!");
 
@@ -66,9 +65,6 @@ fn main() {
     
     socket_filter::set_packet_version_v3(&raw_socket)
         .expect("Failed to set packet version");
-
-    socket_filter::attach_ebpf_filter(&raw_socket, prog)
-        .expect("Failed to attach filter");
     
     socket_filter::set_socket_rx_ring(&raw_socket, 32768, 4, 1000)
         .expect("Failed set RX_RING");
@@ -76,6 +72,10 @@ fn main() {
     let mut packet_ring = socket_filter::mmap_rx_ring(&raw_socket, 32768, 4)
         .expect("Failed set mmap rx ring");
     
+
+    socket_filter::attach_ebpf_filter(&raw_socket, prog)
+        .expect("Failed to attach filter");
+
     socket_filter::bind_to_interface(&raw_socket, "wlp2s0")
         .expect("Failed to bind to interface");
 

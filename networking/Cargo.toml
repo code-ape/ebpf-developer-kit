@@ -1,0 +1,7 @@
+[package]
+name = "networking"
+version = "0.1.0"
+authors = ["ferris <ferris@ferrisellis.com>"]
+
+[dependencies]
+libc = "0.2"

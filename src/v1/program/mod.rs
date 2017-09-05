@@ -5,6 +5,7 @@ use std::io;
 use std::u32;
 
 use ::v1::lowlevel::{
+    KernelInfo,
     KernelRelease,
 };
 
@@ -19,64 +20,94 @@ pub use ::v1::lowlevel::{
 
 use std::str;
 
+type LoadResult = Result<(), io::Error>;
+
 #[derive(Debug)]
-pub struct EbpfProgram<'a> {
-    program_type: ProgramType,
+enum ProgramState {
+    NotLoaded,
+    Loaded,
+    Unloaded,
+}
+
+pub trait EbpfProgram<'a> {
+    fn new(instructions: &'a [u64], license: &'a [u8])-> Self;
+    fn program_type() -> ProgramType;
+    fn instructions(&self) -> &'a [u64];
+    fn license(&self) -> &'a [u8];
+    fn attempt_load(
+        &mut self,
+        log_level: EbpfProgLoadLogLevel
+    ) -> LoadResult;
+    fn attempt_load_for_kernel_release(
+        &mut self,
+        log_level: EbpfProgLoadLogLevel,
+        kernel_release: KernelRelease
+    ) -> LoadResult;
+}
+
+#[derive(Debug)]
+pub struct SocketFilter<'a> {
     instructions: &'a [u64],
     license: &'a [u8],
+    state: ProgramState,
+    log_level: Option<EbpfProgLoadLogLevel>,
+    kernel_release: Option<KernelRelease>,
+    fd: Option<ProgramFd>,
+    log_output: Option<String>,
 }
 
-impl<'a> EbpfProgram<'a> {
-    pub fn new(program_type: ProgramType, instructions: &'a [u64], license: &'a [u8])
-    -> EbpfProgram<'a> {
-        EbpfProgram {
-            program_type: program_type,
+
+impl<'a> EbpfProgram<'a> for SocketFilter<'a> {
+    fn new(instructions: &'a [u64], license: &'a [u8])
+    -> SocketFilter<'a> {
+        SocketFilter {
             instructions: instructions,
-            license: license
+            license: license,
+            state: ProgramState::NotLoaded,
+            log_level: None,
+            kernel_release: None,
+            fd: None,
+            log_output: None
         }
     }
-}
 
-type LoadResult = Result<ProgramFd, io::Error>;
+    fn program_type() -> ProgramType {
+        ProgramType::SocketFilter
+    }
+    fn license(&self) -> &'a [u8] {
+        self.license
+    }
+    fn instructions(&self) -> &'a [u64] {
+        self.instructions
+    }
 
-#[derive(Debug)]
-pub struct LoadInfo<'a> {
-    pub program: &'a EbpfProgram<'a>,
-    pub log_level: EbpfProgLoadLogLevel,
-    pub kernel_release: KernelRelease
-}
+    fn attempt_load(&mut self, log_level: EbpfProgLoadLogLevel) -> LoadResult {
+        let kernel_info = KernelInfo::get().unwrap(); //TODO!!!!
+        self.attempt_load_for_kernel_release(
+            log_level, kernel_info.release
+        )
+    }
 
-/*
-#[repr(C)]
-#[derive(Debug)]
-pub struct ProgLoadAttr {
-    prog_type: __u32,
-    insn_cnt: __u32,
-    insns: __aligned_u64,
-    license: __aligned_u64,
-    log_level: __u32,
-    log_size: __u32,
-    log_buf: __aligned_u64,
-    kern_version: __u32
-}
-*/
-
-impl<'a> LoadInfo<'a> {
-    pub fn attempt_load(&self) -> LoadResult {
+    fn attempt_load_for_kernel_release(
+        &mut self,
+        log_level: EbpfProgLoadLogLevel,
+        kernel_release: KernelRelease
+    ) -> LoadResult {
 
         //let debug_log : Vec<u8> = Vec::with_capacity(2<<20);
         let debug_log_array = [0 as u8; 8192];
 
         let prog_load_attr = ProgLoadAttr {
-            prog_type: self.program.program_type.clone() as u32,
-            insn_cnt: self.program.instructions.len() as u32,
-            insns: &(self.program.instructions[0]) as *const u64 as u64,
-            license: &(self.program.license[0]) as *const u8 as u64,
-            log_level: self.log_level.clone() as u32,
+            prog_type: Self::program_type() as u32,
+            insn_cnt: self.instructions().len() as u32,
+            insns: &(self.instructions()[0]) as *const u64 as u64,
+            license: &(self.license()[0]) as *const u8 as u64,
+            log_level: log_level.clone() as u32,
             log_size: debug_log_array.len() as u32,
             log_buf: &(debug_log_array[0]) as *const u8 as u64,
-            kern_version: 264489 //self.kernel_release.clone().into()
+            kern_version: kernel_release.clone().into()
         };
+
         let r = unsafe { load_program(prog_load_attr) };
 
         let mut cs = str::from_utf8(&debug_log_array).expect("From utf8 failed");
@@ -84,7 +115,11 @@ impl<'a> LoadInfo<'a> {
         println!("\n{}\n", cs);
         match r {
             Ok(prog_fd) => {
-                Ok(prog_fd)
+                self.fd = Some(prog_fd);
+                self.log_output = Some(String::from(cs));
+                self.state = ProgramState::Loaded;
+                self.log_level = Some(log_level);
+                Ok(())
             },
             Err(error) => Err(error)
         }

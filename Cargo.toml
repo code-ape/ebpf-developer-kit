@@ -1,11 +1,12 @@
 [package]
 name = "ebpf-development-kit"
-version = "0.1.0"
+version = "2017.9.5-1"
 authors = ["ferris <ferris@ferrisellis.com>"]
 
 [dependencies]
 libc = "0.2"
 xmas-elf = { version = "0.6.0", optional = true }
+networking = { optional = true, path = "networking" }
 
 [profile.dev]
 
@@ -31,10 +32,12 @@ kernel_3_18 = [
     "elf_loader",
     # for loading and unloading programs
     "program",
+]
+kernel_3_19 = [
+    "kernel_3_18",
     # enable socket filter usage
     "socket_filter"
 ]
-kernel_3_19 = ["kernel_3_18"]
 kernel_4_01 = ["kernel_3_19"]
 kernel_4_02 = ["kernel_4_01"]
 kernel_4_03 = ["kernel_4_02"]
@@ -55,5 +58,5 @@ elf_loader = ["xmas-elf"]
 # enable loading of programs from ELF files
 program  = []
 # enable usage of programs for socket filtering
-socket_filter = []
+socket_filter = ["networking"]
 
