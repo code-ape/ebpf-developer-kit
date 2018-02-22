@@ -380,7 +380,8 @@ impl MapFd {
 
 
 /// Holds file descriptor of an eBPF program.
-#[derive(Debug)]
+/// TODO: Figure out proper lifetime and borrow traits
+#[derive(Debug,Clone)]
 pub struct ProgramFd(RawFd);
 
 impl ProgramFd {

@@ -10,11 +10,12 @@ use std::{
     thread,
     time,
     ffi,
-    fmt,
+    //fmt,
 };
 
 
 use ::v1::program::{
+    EbpfProgram,
     ProgramFd,
 };
 
@@ -31,19 +32,19 @@ use libc::{
     //
     c_int,
     c_uint,
-    c_short,
-    c_char,
-    __u8,
-    __u16,
-    __u32,
-    __u64,
+    //c_short,
+    //c_char,
+    //__u8,
+    //__u16,
+    //__u32,
+    //__u64,
     c_void,
     //
-    AF_PACKET,
-    PF_PACKET,
-    SOCK_RAW,
-    SOCK_NONBLOCK,
-    SOCK_CLOEXEC,
+    //AF_PACKET,
+    //PF_PACKET,
+    //SOCK_RAW,
+    //SOCK_NONBLOCK,
+    //SOCK_CLOEXEC,
     SOL_SOCKET,
     SOL_PACKET,
     SO_ATTACH_BPF,
@@ -58,31 +59,33 @@ use libc::{
 
 use lib_networking::v1::linux as networking;
 
-use self::networking::packet as packet;
+//use self::networking::packet as packet;
 use self::networking::packet::{
     SockAddrLL,
     PacketOption,
     TPacketVersions,
     TPacketReq3,
-    TPacketBdTs,
-    TPacketHdrVariant1,
-    TPacket3Hdr,
-    TPacketHdrV1,
-    TPacketBlockDesc,
+    //TPacketBdTs,
+    //TPacketHdrVariant1,
+    //TPacket3Hdr,
+    //TPacketHdrV1,
+    //TPacketBlockDesc,
+    TPacketBlockDescV1,
+    TPacketBlockDescV1Iter
 };
 
-use self::networking::socket as socket;
+//use self::networking::socket as socket;
 use self::networking::socket::{
     socket_syscall,
     AddressFamily,
 };
 
-use self::networking::ether as ether;
+//use self::networking::ether as ether;
 use self::networking::ether::{
     Protocol
 };
 
-use self::networking::net as net;
+//use self::networking::net as net;
 use self::networking::net::{
     SocketDescription,
     SockType
@@ -138,20 +141,24 @@ fn bind(socket: &Socket, address: SockAddrLL) -> OsResult<()> {
 
 }
 
-pub fn attach_ebpf_filter(socket: &Socket, ebpf_prog_fd: ProgramFd) -> OsResult<()> {
-    match unsafe {
-        raw_setsocketopt(
-            socket.get_fd(),
-            SOL_SOCKET,
-            SO_ATTACH_BPF,
-            &ebpf_prog_fd as *const ProgramFd as *const c_void,
-            mem::size_of::<ProgramFd>() as u32
-        )
-    } {
+pub unsafe fn attach_ebpf_filter_raw(socket: &Socket, ebpf_prog_fd: ProgramFd) -> OsResult<()> {
+    match raw_setsocketopt(
+        socket.get_fd(),
+        SOL_SOCKET,
+        SO_ATTACH_BPF,
+        &ebpf_prog_fd as *const ProgramFd as *const c_void,
+        mem::size_of::<ProgramFd>() as u32
+    ) {
         0 => Ok(()),
         -1 => return Err(io::Error::last_os_error()),
         _ => unreachable!("syscall setsockopt returned unreachable value!")   
     }
+}
+
+pub fn attach_ebpf_filter<'a,T>(socket: &Socket, sf_prog: T) -> OsResult<()> 
+    where T: AsRef<program::SocketFilter<'a>>
+{
+    unsafe { attach_ebpf_filter_raw(socket, sf_prog.as_ref().file_descriptor()) }
 }
 
 pub fn open_raw_sock() -> OsResult<Socket> {
@@ -241,48 +248,6 @@ struct BlockRaw {//<'a> {
     index: c_uint,
 }
 
-#[derive(Debug)]
-pub struct PacketIter<'a> {
-    block_desc: &'a mut TPacketBlockDesc,
-    last_index: isize,
-    next_offset: u32
-}
-
-impl TPacketBlockDesc {
-    pub fn iter(&mut self) -> PacketIter {
-        println!("TPacketBlockDesc with {} packets constructing iterator...",
-            self.hdr.num_pkts);
-        PacketIter {
-            block_desc: self,
-            last_index: -1,
-            next_offset: 0
-        }
-    }
-}
-
-impl<'a> Iterator for PacketIter<'a> {
-    type Item = &'a TPacket3Hdr;
-    fn next(&mut self) -> Option<&'a TPacket3Hdr> {
-        match self.last_index + 1 {
-            n if n < (self.block_desc.hdr.num_pkts as isize) => unsafe {
-                let block_desc_ptr = self.block_desc as *const TPacketBlockDesc;
-                let addr_ptr : *const c_void = (
-                        (self.block_desc.hdr.offset_to_first_pkt as u64) + 
-                        (block_desc_ptr as u64) +
-                        (self.next_offset as u64)
-                    ) as *const c_void;
-                let tp3hdr = mem::transmute::<*const c_void, &TPacket3Hdr>(addr_ptr);
-                self.last_index = self.last_index + 1;
-                self.next_offset = self.next_offset + tp3hdr.tp_next_offset;
-                return Some(tp3hdr);
-            },
-            _ => {
-                self.block_desc.hdr.block_status = 0;
-                None
-            }
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct Block(rc::Rc<BlockRaw>);
@@ -314,19 +279,22 @@ impl Block {
         result
     }
 
-    fn block_desc(&self, packet_ring: &PacketRing) -> &mut TPacketBlockDesc {
-        let block_desc : &mut TPacketBlockDesc = unsafe {
+    fn block_desc(&self, packet_ring: &PacketRing) -> &mut TPacketBlockDescV1 {
+        let block_desc : &mut TPacketBlockDescV1 = unsafe {
             let ptr = (packet_ring.address as u64) + 
                 (packet_ring.block_size as u64 * self.0.index as u64);
-            let p2 = mem::transmute(ptr as u64);
+            // TODO
+            let p2 = mem::transmute::<u64, &mut TPacketBlockDescV1>(ptr as u64);
+            // TODO
+            assert_eq!(1, p2.version);
             p2
         };
         block_desc
     }
 
-    pub fn iter(&self, packet_ring: &PacketRing) -> PacketIter {
+    pub fn iter(&self, packet_ring: &PacketRing) -> TPacketBlockDescV1Iter {
         println!("Block({}) constructing iterator...", self.0.index);
-        let mut block_desc = self.block_desc(packet_ring);
+        let block_desc = self.block_desc(packet_ring);
         block_desc.iter()
     }
 
@@ -416,9 +384,9 @@ pub enum ReadMethod {
     }
 }
 
-pub struct Info<'a> {
-    pub interface: &'a str,
-    pub packet_version: PacketVersion,
-    pub read_method: ReadMethod,
-    pub filter_program: program::SocketFilter<'a>,
-}
+//pub struct Info<'a> {
+//    pub interface: &'a str,
+//    pub packet_version: PacketVersion,
+//    pub read_method: ReadMethod,
+//    pub filter_program: program::SocketFilter<'a>,
+//}

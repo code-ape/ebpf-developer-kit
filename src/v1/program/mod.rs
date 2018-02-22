@@ -3,6 +3,10 @@ pub mod lowlevel;
 
 use std::io;
 use std::u32;
+use std::marker::{
+    PhantomData,
+    Sized
+};
 
 use ::v1::lowlevel::{
     KernelInfo,
@@ -20,56 +24,51 @@ pub use ::v1::lowlevel::{
 
 use std::str;
 
-type LoadResult = Result<(), io::Error>;
+type LoadResult<T> = Result<Box<T>, io::Error>;
 
 #[derive(Debug)]
 enum ProgramState {
     NotLoaded,
     Loaded,
-    Unloaded,
+    //Unloaded,
 }
 
-pub trait EbpfProgram<'a> {
-    fn new(instructions: &'a [u64], license: &'a [u8])-> Self;
+pub struct ProgramData<'a, T: EbpfProgram<'a>> {
+    pub instructions: &'a [u64],
+    pub license: &'a [u8],
+    pub program_type: PhantomData<T>
+}
+
+pub trait EbpfProgram<'a> where Self: Sized {
+    //fn new(instructions: &'a [u64], license: &'a [u8])-> Self;
     fn program_type() -> ProgramType;
     fn instructions(&self) -> &'a [u64];
     fn license(&self) -> &'a [u8];
-    fn attempt_load(
-        &mut self,
+    fn file_descriptor(&self) -> ProgramFd;
+    fn attempt_kernel_load<T: Into<ProgramData<'a,Self>>>(
+        T,
         log_level: EbpfProgLoadLogLevel
-    ) -> LoadResult;
-    fn attempt_load_for_kernel_release(
-        &mut self,
+    ) -> LoadResult<Self>;
+    fn attempt_kernel_load_for_kernel_release<T: Into<ProgramData<'a,Self>>>(
+        T,
         log_level: EbpfProgLoadLogLevel,
         kernel_release: KernelRelease
-    ) -> LoadResult;
+    ) -> LoadResult<Self>;
 }
 
 #[derive(Debug)]
 pub struct SocketFilter<'a> {
     instructions: &'a [u64],
     license: &'a [u8],
-    state: ProgramState,
-    log_level: Option<EbpfProgLoadLogLevel>,
-    kernel_release: Option<KernelRelease>,
-    fd: Option<ProgramFd>,
-    log_output: Option<String>,
+    //state: ProgramState,
+    log_level: EbpfProgLoadLogLevel,
+    kernel_release: KernelRelease,
+    fd: ProgramFd,
+    log_output: String,
 }
 
 
 impl<'a> EbpfProgram<'a> for SocketFilter<'a> {
-    fn new(instructions: &'a [u64], license: &'a [u8])
-    -> SocketFilter<'a> {
-        SocketFilter {
-            instructions: instructions,
-            license: license,
-            state: ProgramState::NotLoaded,
-            log_level: None,
-            kernel_release: None,
-            fd: None,
-            log_output: None
-        }
-    }
 
     fn program_type() -> ProgramType {
         ProgramType::SocketFilter
@@ -80,28 +79,35 @@ impl<'a> EbpfProgram<'a> for SocketFilter<'a> {
     fn instructions(&self) -> &'a [u64] {
         self.instructions
     }
-
-    fn attempt_load(&mut self, log_level: EbpfProgLoadLogLevel) -> LoadResult {
+    fn file_descriptor(&self) -> ProgramFd {
+        self.fd.clone()
+    }
+    
+    fn attempt_kernel_load<T: Into<ProgramData<'a,Self>>>(
+        prog_data_var: T, log_level: EbpfProgLoadLogLevel
+    ) -> LoadResult<Self> {
         let kernel_info = KernelInfo::get().unwrap(); //TODO!!!!
-        self.attempt_load_for_kernel_release(
-            log_level, kernel_info.release
+        Self::attempt_kernel_load_for_kernel_release(
+            prog_data_var, log_level, kernel_info.release
         )
     }
 
-    fn attempt_load_for_kernel_release(
-        &mut self,
+    fn attempt_kernel_load_for_kernel_release<T: Into<ProgramData<'a,Self>>>(
+        prog_data_var: T,
         log_level: EbpfProgLoadLogLevel,
         kernel_release: KernelRelease
-    ) -> LoadResult {
+    ) -> LoadResult<Self> {
+
+        let prog_data : ProgramData<Self> = prog_data_var.into();
 
         //let debug_log : Vec<u8> = Vec::with_capacity(2<<20);
         let debug_log_array = [0 as u8; 8192];
 
         let prog_load_attr = ProgLoadAttr {
             prog_type: Self::program_type() as u32,
-            insn_cnt: self.instructions().len() as u32,
-            insns: &(self.instructions()[0]) as *const u64 as u64,
-            license: &(self.license()[0]) as *const u8 as u64,
+            insn_cnt: prog_data.instructions.len() as u32,
+            insns: &(prog_data.instructions[0]) as *const u64 as u64,
+            license: &(prog_data.license[0]) as *const u8 as u64,
             log_level: log_level.clone() as u32,
             log_size: debug_log_array.len() as u32,
             log_buf: &(debug_log_array[0]) as *const u8 as u64,
@@ -115,11 +121,14 @@ impl<'a> EbpfProgram<'a> for SocketFilter<'a> {
         println!("\n{}\n", cs);
         match r {
             Ok(prog_fd) => {
-                self.fd = Some(prog_fd);
-                self.log_output = Some(String::from(cs));
-                self.state = ProgramState::Loaded;
-                self.log_level = Some(log_level);
-                Ok(())
+                Ok(Box::new(SocketFilter{
+                    instructions: prog_data.instructions,
+                    license: prog_data.license,
+                    log_level: log_level,
+                    kernel_release: kernel_release,
+                    fd: prog_fd,
+                    log_output: String::from(cs),
+                }))
             },
             Err(error) => Err(error)
         }

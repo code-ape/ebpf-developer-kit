@@ -24,7 +24,7 @@ use ::v1::map::core::{
     MutableMap,
     DeletableEntries,
     Iter,
-    CreateResult
+    //CreateResult
 };
 
 #[cfg(feature = "beta")]
@@ -39,7 +39,8 @@ impl<K: Clone,V: Clone> Map for HashMap<K,V> {
     type Key = K;
     type Value = V;
 
-    fn new(max_entries: u32) -> CreateResult<Self> {
+    fn new(max_entries: u32) -> Result<Self,Error> {
+    //fn new(max_entries: u32) -> CreateResult<Self> {
         let map_create_attr = MapCreateAttr {
             map_type: MapType::Hash as u32,
             key_size: mem::size_of::<K>() as u32,

@@ -234,7 +234,7 @@ pub const ETH_P_XDSA: c_uint = 0x00F8;
 
 
 /// Ethernet frame header
-#[derive(Debug)]
+#[derive(Debug,Copy,Clone)]
 #[repr(packed)]
 pub struct ethhdr {
     pub h_dest: [c_uchar;ETH_ALEN as usize],

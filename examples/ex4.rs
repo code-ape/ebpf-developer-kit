@@ -4,7 +4,6 @@ extern crate libc;
 
 use std::fs::File;
 use std::io::Read;
-use std::mem;
 
 use ebpf_development_kit::v1 as ebpf;
 
@@ -44,11 +43,12 @@ fn main() {
         ef, "license", "classifier"
     );
     
+    /*
     // Attempt loading eBPF program into kernel
     let ebpf_sf: program::SocketFilter = elf_pi.attempt_load()
         .expect("Failed to load program!");
 
-
+    
     // setup socket
     // TODO: introduce idea of capture socket
     let socket_info = socket_filter::Info {
@@ -62,7 +62,7 @@ fn main() {
         filter_program: ebpf_sf,
     };
     
-    /*
+    
     let filter = socket_filter::TryFromInfo(socket_info)
         .expect("Failed to set up ");
 

@@ -10,8 +10,8 @@ pub enum CreationError {
 }
 */
 
-
-pub type CreateResult<T: Map> = Result<T, Error>;
+// E0122
+//pub type CreateResult<T: Map> = Result<T, Error>;
 
 /// Trait for all eBPF maps, allows creation of the map, reading values from
 /// it, iterating over it, and destroying it. 
@@ -20,7 +20,7 @@ pub trait Map: Sized {
     type Value: Clone;
 
     /// Creates map with desired maximum number of entries.
-    fn new(max_entries: u32) -> CreateResult<Self>;
+    fn new(max_entries: u32) -> Result<Self,Error>;
 
     /// Gets maximum entries allowed for the map.
     fn max_entries(&self) -> u32;

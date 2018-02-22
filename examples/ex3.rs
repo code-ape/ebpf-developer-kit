@@ -4,10 +4,10 @@ extern crate libc;
 
 use std::fs::File;
 use std::io::Read;
-use std::mem;
 
 use ebpf_development_kit::v1 as ebpf;
 
+use ebpf::program::EbpfProgram;
 
 use elf::EbpfProgramResource;
 use ebpf::lowlevel::KernelInfo;
@@ -21,10 +21,10 @@ use ebpf::{
 
 fn main() {
     // TODO, put in libc issue
-    println!("size_of(SockAddrLL) = {}",
-        mem::size_of::<socket_filter::SockAddrLL>());
-    println!("size_of(sockaddr) = {}",
-        mem::size_of::<libc::sockaddr>());
+    //println!("size_of(SockAddrLL) = {}",
+    //    mem::size_of::<socket_filter::SockAddrLL>());
+    //println!("size_of(sockaddr) = {}",
+    //    mem::size_of::<libc::sockaddr>());
 
     let file = "ebpf_prog_1.o";
 
@@ -39,29 +39,33 @@ fn main() {
 
     // Create elf::ProgramInfo, this holds all data needed to attempt loading
     // the program
-    let efpi = elf::ProgramInfo::<program::SocketFilter>::new(
+    let prog_info = elf::ProgramInfo::<program::SocketFilter>::new(
         ef, "license", "classifier"
     );
     
-    let ef: program::SocketFilter = efpi.attempt_load()
+    let prog_data: program::ProgramData<program::SocketFilter> = prog_info.attempt_load()
         .expect("Failed to load program!");
 
     let kernel_info = KernelInfo::get().expect("Failed to get kernel info!");
 
-    let li = program::LoadInfo {
-        program: &ef,
-        log_level: program::EbpfProgLoadLogLevel::Normal,
-        kernel_release: kernel_info.release
-    };
+    //let li = program::LoadInfo {
+    //    program: &ef,
+    //    log_level: program::EbpfProgLoadLogLevel::Normal,
+    //    kernel_release: kernel_info.release
+    //};
 
     //println!("{:?}", li);
 
-    let prog = li.attempt_load().expect("Failed to load program!");
+    //let prog = program::SocketFilter::new();
+    //li.attempt_load().expect("Failed to load program!");
+
+    let prog = program::SocketFilter::attempt_kernel_load(
+            prog_data, program::EbpfProgLoadLogLevel::Normal
+        ).expect("Failed to load program into kernel.");
 
     let raw_socket = socket_filter::open_raw_sock().expect("Failed to open raw socket");
 
     println!("raw_socket = {:?}", raw_socket);
-    
     
     socket_filter::set_packet_version_v3(&raw_socket)
         .expect("Failed to set packet version");

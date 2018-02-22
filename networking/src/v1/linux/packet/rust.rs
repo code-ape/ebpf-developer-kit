@@ -6,6 +6,8 @@ use ::v1::linux::ether::{
     EthHdr
 };
 
+use libc::__u32;
+
 pub use ::v1::linux::packet::c::{
     sockaddr_ll as SockAddrLL,
     tpacket_stats as TPacketStats,
@@ -20,6 +22,7 @@ pub use ::v1::linux::packet::c::{
     tpacket_bd_ts as TPacketBdTs,
     tpacket_hdr_v1 as TPacketHdrV1,
     tpacket_bd_header_u as TPacketBdHeaderU,
+    // Implement TPacketBlockDesc enum over for safety
     tpacket_block_desc as TPacketBlockDesc,
     tpacket_versions as TPacketVersions,
     tpacket_req as TPacketReq,
@@ -136,4 +139,12 @@ impl fmt::Display for TPacket3Hdr {
             self.get_eth_hdr()
         )
     }
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct TPacketBlockDescV1 {
+    pub version: __u32,
+    pub offset_to_priv: __u32,
+    pub hdr: TPacketHdrV1
 }

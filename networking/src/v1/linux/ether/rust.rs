@@ -205,6 +205,8 @@ pub enum Protocol {
 }
     
 
+// TODO: resolve
+#[allow(safe_packed_borrows)]
 impl fmt::Display for EthHdr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Destination: {}, Source: {}, Proto: {:X}",

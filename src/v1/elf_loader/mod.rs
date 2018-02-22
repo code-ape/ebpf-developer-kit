@@ -1,22 +1,21 @@
 use xmas_elf as elf;
 
 use std;
-use std::fs;
-use std::io;
-use std::io::Read;
+//use std::fs;
+//use std::io;
+//use std::io::Read;
 use std::marker::PhantomData;
 
 use self::elf::sections::{
     SectionData
 };
 
-use ::v1::lowlevel::{
-    ProgramType,
-};
+//use ::v1::lowlevel::ProgramType;
 
 use ::v1::program as program;
 use self::program::{
-    EbpfProgram
+    EbpfProgram,
+    ProgramData
 };
 
 pub use xmas_elf::ElfFile as File;
@@ -31,10 +30,11 @@ pub enum LoadError<'a> {
     PartialInstruction
 }
 
-type LoadResult<'a, T: EbpfProgram<'a>> = Result<T, LoadError<'a>>;
+// E0122
+//type LoadResult<'a, T: EbpfProgram<'a>> = Result<T, LoadError<'a>>;
 
 pub trait EbpfProgramResource<'a, T: EbpfProgram<'a>> {
-    fn attempt_load(&self) -> Result<T, LoadError<'a>>;
+    fn attempt_load(&self) -> Result<ProgramData<'a,T>, LoadError<'a>>;
 }
 
 pub struct ProgramInfo<'a, T: EbpfProgram<'a>> {
@@ -61,7 +61,7 @@ impl<'a, T: EbpfProgram<'a>> ProgramInfo<'a, T> {
 }
 
 impl<'a, T: EbpfProgram<'a>> EbpfProgramResource<'a, T> for ProgramInfo<'a, T> {
-    fn attempt_load(&self) -> Result<T, LoadError<'a>> {
+    fn attempt_load(&self) -> Result<ProgramData<'a,T>, LoadError<'a>> {
 
         let l_section = 
             self.elf_file
@@ -101,7 +101,7 @@ impl<'a, T: EbpfProgram<'a>> EbpfProgramResource<'a, T> for ProgramInfo<'a, T> {
         println!("license_bytes = {:?}", l_bytes);
         println!("program_bytes = {:?}", p_bytes);
 
-        Ok(T::new(p_bytes, l_bytes))
+        Ok(ProgramData { instructions: p_bytes, license: l_bytes, program_type: PhantomData })
     }
 }
 

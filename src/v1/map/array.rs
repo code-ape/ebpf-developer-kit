@@ -22,7 +22,7 @@ use ::v1::map::core::{
     Map,
     MutableMap,
     Iter,
-    CreateResult
+    //CreateResult
 };
 
 #[cfg(feature = "beta")]
@@ -36,7 +36,8 @@ impl<V: Clone> Map for Array<V> {
     type Key = u32;
     type Value = V;
 
-    fn new(max_entries: u32) -> CreateResult<Self> {
+    fn new(max_entries: u32) -> Result<Self,Error> {
+    //fn new(max_entries: u32) -> CreateResult<Self> {
         let map_create_attr = MapCreateAttr {
             map_type: MapType::Array as u32,
             key_size: mem::size_of::<Self::Key>() as u32,
