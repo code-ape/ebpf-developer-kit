@@ -359,7 +359,7 @@ macro_rules! TPACKET3_HDRLEN {
 
 
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 #[repr(C)]
 pub enum tpacket_versions {
     TPACKET_V1,

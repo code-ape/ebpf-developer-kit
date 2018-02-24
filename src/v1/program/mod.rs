@@ -39,6 +39,8 @@ pub struct ProgramData<'a, T: EbpfProgram<'a>> {
     pub program_type: PhantomData<T>
 }
 
+// TODO: Implement into ProgramData for (instructions, license) tuple, unsure how to pass type?
+
 pub trait EbpfProgram<'a> where Self: Sized {
     //fn new(instructions: &'a [u64], license: &'a [u8])-> Self;
     fn program_type() -> ProgramType;
@@ -86,7 +88,7 @@ impl<'a> EbpfProgram<'a> for SocketFilter<'a> {
     fn attempt_kernel_load<T: Into<ProgramData<'a,Self>>>(
         prog_data_var: T, log_level: EbpfProgLoadLogLevel
     ) -> LoadResult<Self> {
-        let kernel_info = KernelInfo::get().unwrap(); //TODO!!!!
+        let kernel_info = KernelInfo::get().expect("Failed to get kernel info."); //TODO!!!!
         Self::attempt_kernel_load_for_kernel_release(
             prog_data_var, log_level, kernel_info.release
         )
@@ -113,7 +115,7 @@ impl<'a> EbpfProgram<'a> for SocketFilter<'a> {
             log_buf: &(debug_log_array[0]) as *const u8 as u64,
             kern_version: kernel_release.clone().into()
         };
-
+        println!("prog_load_attr = {:?}", prog_load_attr);
         let r = unsafe { load_program(prog_load_attr) };
 
         let mut cs = str::from_utf8(&debug_log_array).expect("From utf8 failed");
@@ -130,7 +132,10 @@ impl<'a> EbpfProgram<'a> for SocketFilter<'a> {
                     log_output: String::from(cs),
                 }))
             },
-            Err(error) => Err(error)
+            Err(e) => {
+                println!("Failed attempt_kernel_load, error: {}", e);
+                Err(e)
+            }
         }
     }
 }

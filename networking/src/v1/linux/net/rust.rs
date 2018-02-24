@@ -3,6 +3,12 @@ use std::mem;
 
 use ::v1::linux::net::c as c;
 
+pub use ::v1::linux::net::c::{
+    sock_type,
+    SOCK_CLOEXEC as SockCloExec,
+    SOCK_NONBLOCK as SockNonBlock
+};
+
 #[repr(C)]
 #[derive(Debug)]
 pub enum SockType {
@@ -21,12 +27,6 @@ pub enum SockType {
     /// Linux specific way of getting packets at the dev level. For writing
     /// rarp and other similar things on the user level.
     Packet = 10
-}
-
-pub struct SocketDescription {
-    pub sock_type: SockType,
-    pub nonblock: bool,
-    pub close_on_exec: bool
 }
 
 impl Into<c::sock_type> for SockType {

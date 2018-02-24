@@ -46,7 +46,7 @@ fn main() {
     let prog_data: program::ProgramData<program::SocketFilter> = prog_info.attempt_load()
         .expect("Failed to load program!");
 
-    let kernel_info = KernelInfo::get().expect("Failed to get kernel info!");
+    //let kernel_info = KernelInfo::get().expect("Failed to get kernel info!");
 
     //let li = program::LoadInfo {
     //    program: &ef,

@@ -1,5 +1,6 @@
 
 use std::io;
+use std::mem;
 
 use libc::{
     c_int,
@@ -201,18 +202,19 @@ pub fn socket_syscall(
     protocol: ether::Protocol
 ) -> Result<c_int,io::Error> {
 
-    let mut sock_type_num : c_uint = description.sock_type as u32;
+    let mut sock_type_num : c_int = description.sock_type as c_int;
     if description.nonblock {
-        sock_type_num += 00004000;
+        sock_type_num | net::SockCloExec;
     }
     if description.close_on_exec {
-        sock_type_num += 02000000;
+        sock_type_num | net::SockNonBlock;
     }
 
     match unsafe { libc_socket(
         domain as i32,
-        sock_type_num as i32,
-        (protocol as u32).to_be() as i32
+        sock_type_num,
+        //(protocol as u32).to_be() as i32
+        mem::transmute((protocol as u32))
     ) } {
         -1 => Err(io::Error::last_os_error()),
         n if n > 0 => Ok(n),

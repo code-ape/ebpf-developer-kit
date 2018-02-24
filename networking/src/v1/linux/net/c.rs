@@ -1,6 +1,11 @@
 
 #![allow(non_camel_case_types)]
 
+use libc::{
+    // number types
+    c_int,
+};
+
 #[repr(C)]
 #[derive(Debug)]
 pub enum sock_type {
@@ -20,3 +25,7 @@ pub enum sock_type {
     /// rarp and other similar things on the user level.
     SOCK_PACKET = 10
 } 
+
+// Flags for socket, socketpair, accept4
+pub const SOCK_CLOEXEC : c_int = 02000000;
+pub const SOCK_NONBLOCK : c_int = 00004000;

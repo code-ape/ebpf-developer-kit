@@ -172,7 +172,10 @@ pub fn open_raw_sock() -> OsResult<Socket> {
         Protocol::All
     ) {
         Ok(n)=> unsafe { Ok(Socket::from_fd(n)) },
-        Err(e) => Err(e),
+        Err(e) => {
+            println!("open_raw_socket() error: {}", e);
+            Err(e)
+        }
     }
 }
 
@@ -286,7 +289,8 @@ impl Block {
             // TODO
             let p2 = mem::transmute::<u64, &mut TPacketBlockDescV1>(ptr as u64);
             // TODO
-            assert_eq!(1, p2.version);
+            println!("p2 = {:?}", p2);
+            assert!(p2.version == TPacketVersions::TPACKET_V3);
             p2
         };
         block_desc

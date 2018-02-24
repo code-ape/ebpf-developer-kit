@@ -410,19 +410,45 @@ pub struct KernelRelease {
 impl KernelRelease {
     fn from_string(s: String) -> Option<Self> {
         let str_parts : Vec<&str> = s.split('.').collect();
-        if str_parts.len() != 3 { return None }
+        if str_parts.len() != 3 {
+            println!("KernelRelease: str_parts.len() = '{}' instead of 3.", str_parts.len());
+            return None
+        }
         Some(KernelRelease{
             major: match str_parts[0].parse::<u8>() {
                 Ok(v) => v,
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelRelease: parse major version from 'u8' ({}) failed, error: {}",
+                        str_parts[0], e);
+                    return None
+                }
             },
             minor: match str_parts[1].parse::<u8>() {
                 Ok(v) => v,
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelRelease: parse minor version from 'u8' ({}) failed, error: {}",
+                        str_parts[1], e);
+                    return None
+                }
             },
-            patch: match str_parts[2].parse::<u8>() {
+            patch: match {
+                // Split off any trailing data such as build version from the patch string.
+                let clean_patch_str_1 = str_parts[2];
+                let clean_patch_str_2 = clean_patch_str_1.split(|c| !char::is_numeric(c));
+                let clean_patch_str_3 : Vec<&str> = clean_patch_str_2.collect();
+                println!("clean_patch_str_3 = {:?}", clean_patch_str_3);
+                let clean_patch_str_4 = clean_patch_str_3[0];
+                println!("clean_patch_str_4 = {:?}", clean_patch_str_4);
+                let x = clean_patch_str_4.parse::<u8>();
+                println!("x = {:?}", x);
+                x
+            } {
                 Ok(v) => v,
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelRelease: parse patch version from 'u8' ({}) failed, error: {}",
+                        str_parts[2], e);
+                    return None
+                }
             },
         }) 
     }
@@ -463,30 +489,51 @@ impl KernelInfo {
         Some(KernelInfo {
             sysname: match i8_slice_to_string(&uts_name.sysname) {
                 Ok(s) => s,
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelInfo: failed to get 'sysname', error: {}", e);
+                    return None
+                }
             },
             nodename: match i8_slice_to_string(&uts_name.nodename) {
                 Ok(s) => s,
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelInfo: failed to get 'nodename', error: {}", e);
+                    return None
+                }
             },
             release: match i8_slice_to_string(&uts_name.release) {
                 Ok(s) => match KernelRelease::from_string(s) {
                     Some(kr) => kr,
-                    None => return None   
+                    None => {
+                        println!("KernelInfo: failed to convert 'release' from string, ");
+                        return None
+                    }
                 },
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelInfo: failed to get 'release', error: {}", e);
+                    return None
+                }
             },
             version: match i8_slice_to_string(&uts_name.version) {
                 Ok(s) => s,
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelInfo: failed to get 'version', error: {}", e);
+                    return None
+                }
             },
             machine: match i8_slice_to_string(&uts_name.machine) {
                 Ok(s) => s,
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelInfo: failed to get 'machine', error: {}", e);
+                    return None
+                }
             },
             domainname: match i8_slice_to_string(&uts_name.domainname) {
                 Ok(s) => s,
-                Err(_) => return None
+                Err(e) => {
+                    println!("KernelInfo: failed to get 'domainname', error: {}", e);
+                    return None
+                }
             },
         })
     }

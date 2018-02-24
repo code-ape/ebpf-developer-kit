@@ -144,7 +144,7 @@ impl fmt::Display for TPacket3Hdr {
 #[derive(Debug)]
 #[repr(C)]
 pub struct TPacketBlockDescV1 {
-    pub version: __u32,
+    pub version: TPacketVersions,
     pub offset_to_priv: __u32,
     pub hdr: TPacketHdrV1
 }
