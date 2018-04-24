@@ -1,9 +1,16 @@
 
 extern crate ebpf_development_kit;
 extern crate libc;
+extern crate env_logger;
+extern crate log;
 
 use std::fs::File;
 use std::io::Read;
+//# For custom env logger #//
+//use std::io::Write;
+//use std::env;
+//use log::{Record, LevelFilter};
+//use env_logger::{Builder, fmt};
 
 use ebpf_development_kit::v1 as ebpf;
 
@@ -20,6 +27,32 @@ use ebpf::{
 
 
 fn main() {
+    /*
+    // Config logging
+    let format = |buf: &mut fmt::Formatter, r: &Record| {
+        let ln = match r.line() {
+            Some(n) => n as i64,
+            None => -1
+        };
+        writeln!(buf, "{}: {} (L{}): {}",
+            r.level(),
+            r.file().unwrap_or("?"),
+            ln,
+            r.args()
+        )
+    };
+
+    let mut builder = Builder::new();
+    builder.format(format).filter(None, LevelFilter::Info);
+
+    if env::var("RUST_LOG").is_ok() {
+       builder.parse(&env::var("RUST_LOG").unwrap());
+    }
+
+    builder.init();
+    */
+    env_logger::init();
+
     // TODO, put in libc issue
     //println!("size_of(SockAddrLL) = {}",
     //    mem::size_of::<socket_filter::SockAddrLL>());
@@ -64,8 +97,6 @@ fn main() {
         ).expect("Failed to load program into kernel.");
 
     let raw_socket = socket_filter::open_raw_sock().expect("Failed to open raw socket");
-
-    println!("raw_socket = {:?}", raw_socket);
     
     socket_filter::set_packet_version_v3(&raw_socket)
         .expect("Failed to set packet version");
@@ -84,8 +115,6 @@ fn main() {
         .expect("Failed to bind to interface");
 
     
-    println!("packet_ring = {:?}", packet_ring);
-
     for _ in 0..1000 {
         let (block, pr_tmp) = packet_ring.get_next();
         println!("\nblock = {:?}\n", block);

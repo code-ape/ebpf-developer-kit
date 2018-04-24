@@ -3,6 +3,8 @@
 #![cfg(target_os = "linux")]
 
 extern crate libc;
+#[macro_use]
+extern crate log;
 
 #[cfg(feature = "elf_loader")]
 extern crate xmas_elf;

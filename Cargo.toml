@@ -5,8 +5,12 @@ authors = ["ferris <ferris@ferrisellis.com>"]
 
 [dependencies]
 libc = "0.2"
+log = "0.4.1"
 xmas-elf = { version = "0.6.0", optional = true }
 networking = { optional = true, path = "networking" }
+
+[dev-dependencies]
+env_logger = "0.5.4"
 
 [profile.dev]
 

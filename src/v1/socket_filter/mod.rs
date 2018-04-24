@@ -1,5 +1,4 @@
 
-
 use std::os::unix::io::RawFd;
 
 use std::{
@@ -12,7 +11,6 @@ use std::{
     ffi,
     //fmt,
 };
-
 
 use ::v1::program::{
     EbpfProgram,
@@ -91,7 +89,7 @@ use self::networking::net::{
     SockType
 };
 
-type OsResult<T> = Result<T,io::Error>;
+pub type OsResult<T> = Result<T,io::Error>;
 
 #[derive(Debug)]
 pub struct Interface(c_uint);
@@ -118,7 +116,7 @@ impl Socket {
 }
 
 pub fn if_nametoindex(name: &str) -> OsResult<Interface> {
-    let name_cstr = ffi::CString::new(name).unwrap();
+    let name_cstr = ffi::CString::new(name)?;
     match unsafe { raw_if_nametoindex((&name_cstr).as_ptr() as *const i8) } {
         0 => Err(io::Error::last_os_error()),
         n if n > 0 => unsafe { Ok(Interface::from_fd(n as i32)) },
@@ -134,8 +132,15 @@ fn bind(socket: &Socket, address: SockAddrLL) -> OsResult<()> {
     ) };
 
     match bind_result {
-        0 => Ok(()),
-        -1 => return Err(io::Error::last_os_error()),
+        0 => {
+            debug!("fn bind: success = true");
+            Ok(())
+        },
+        -1 => {
+            let e = io::Error::last_os_error();
+            error!("fn bind: success = false, error = {}", e);
+            Err(e)
+        },
         _ => unreachable!("syscall socket returned unreachable value!")   
     }
 
@@ -171,9 +176,13 @@ pub fn open_raw_sock() -> OsResult<Socket> {
         },
         Protocol::All
     ) {
-        Ok(n)=> unsafe { Ok(Socket::from_fd(n)) },
+        Ok(n) => {
+            let s = unsafe { Socket::from_fd(n) };
+            debug!("fn open_raw_sock, success = false, socket = {:?}", s);
+            Ok(s)
+        },
         Err(e) => {
-            println!("open_raw_socket() error: {}", e);
+            error!("fn open_raw_sock, success = false, error = {}", e);
             Err(e)
         }
     }
@@ -183,7 +192,7 @@ pub fn bind_to_interface(socket: &Socket, interface_name: &str) -> OsResult<()> 
 
     let interface_index = if_nametoindex(interface_name)?;
 
-    println!("interface_index = {:?}", interface_index);
+    debug!("fn bind_to_interface, interface_index = {:?}, interface_name = {}", interface_index, interface_name);
 
     let sll = SockAddrLL {
         sll_family: AddressFamily::Packet as i16,
@@ -195,7 +204,7 @@ pub fn bind_to_interface(socket: &Socket, interface_name: &str) -> OsResult<()> 
         sll_addr: [0,0,0,0,0,0,0,0]
     };
 
-    println!("sll = {:?}", sll);
+    trace!("fn bind_to_interface, SockAddrLL = {:?}", sll);
 
     bind(socket, sll)
 }
@@ -210,8 +219,15 @@ pub fn set_packet_version_v3(socket: &Socket) -> OsResult<()> {
             mem::size_of::<c_int>() as u32
         )
     } {
-        0 => Ok(()),
-        -1 => return Err(io::Error::last_os_error()),
+        0 => {
+            debug!("fn set_packet_version_v3, success = true");
+            Ok(())
+        },
+        -1 => {
+            let e = io::Error::last_os_error();
+            error!("fn set_packet_version_v3, success = false, error = {}", e);
+            Err(e)
+        },
         _ => unreachable!("syscall setsockopt returned unreachable value!")   
     }
 }
@@ -239,8 +255,15 @@ pub fn set_socket_rx_ring(
             mem::size_of::<TPacketReq3>() as u32
         )
     } {
-        0 => Ok(()),
-        -1 => return Err(io::Error::last_os_error()),
+        0 => {
+            debug!("fn set_socket_rx_ring, success = true");
+            Ok(())
+        },
+        -1 => {
+            let e = io::Error::last_os_error();
+            error!("fn set_socket_rx_ring, success = false, error = {}", e);
+            Err(e)
+        },
         _ => unreachable!("syscall setsockopt returned unreachable value!")   
     }
 }
@@ -368,17 +391,19 @@ pub fn mmap_rx_ring(
                 let b = Block::new(e);
                 pr.blocks.push(b);
             }
+            debug!("fn mmap_rx_ring, success = true");
+            trace!("fn mmap_rx_ring, PacketRing = {:?}", pr);
             Ok(pr)
         },
-        n if n == MAP_FAILED => Err(io::Error::last_os_error()),
-        _ => unreachable!("syscall setsockopt returned unreachable value!")
+        n if n == MAP_FAILED => {
+            let e = io::Error::last_os_error();
+            error!("fn mmap_rx_ring, success = false, error = {}", e);
+            Err(e)
+        },
+        _ => unreachable!("syscall mmap returned unreachable value!")
     }
 }
 
-
-pub enum PacketVersion {
-    V3
-}
 
 pub enum ReadMethod {
     RxRing {

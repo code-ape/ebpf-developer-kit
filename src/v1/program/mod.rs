@@ -23,6 +23,7 @@ pub use ::v1::lowlevel::{
 };
 
 use std::str;
+use std::fmt::Debug;
 
 type LoadResult<T> = Result<Box<T>, io::Error>;
 
@@ -41,7 +42,7 @@ pub struct ProgramData<'a, T: EbpfProgram<'a>> {
 
 // TODO: Implement into ProgramData for (instructions, license) tuple, unsure how to pass type?
 
-pub trait EbpfProgram<'a> where Self: Sized {
+pub trait EbpfProgram<'a> where Self: Sized + Debug {
     //fn new(instructions: &'a [u64], license: &'a [u8])-> Self;
     fn program_type() -> ProgramType;
     fn instructions(&self) -> &'a [u64];

@@ -37,6 +37,7 @@ pub trait EbpfProgramResource<'a, T: EbpfProgram<'a>> {
     fn attempt_load(&self) -> Result<ProgramData<'a,T>, LoadError<'a>>;
 }
 
+#[derive(Debug)]
 pub struct ProgramInfo<'a, T: EbpfProgram<'a>> {
     elf_file: File<'a>,
     license_classifier: &'a str,
@@ -51,12 +52,14 @@ impl<'a, T: EbpfProgram<'a>> ProgramInfo<'a, T> {
         license_classifier: &'a str,
         program_classifier: &'a str
     ) -> Self {
-        ProgramInfo {
+        let pi = ProgramInfo {
             elf_file: elf_file,
             license_classifier: license_classifier,
             program_classifier: program_classifier,
             program_type: PhantomData
-        }
+        };
+        trace!("fn ProgramInfo::new, ProgramInfo = {:?}", pi);
+        pi
     }
 }
 
